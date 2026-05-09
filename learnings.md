@@ -54,3 +54,35 @@ If `manifest.json` says `popup.html` and the file is named `pop.html`, Chrome si
 
 **Branch naming: prefer `main` over `master`.**
 Modern convention. `git branch -M main` (or `-m`) renames the current branch. GitHub creates new repos with `main` as the default; mismatching causes push errors. Worth running on every freshly-init'd repo.
+
+## Session 3 — State machine, persistence, and the permissions model
+
+**Timestamp-based timers are robust; counter-based timers are fragile.**
+Storing `endsAt` (a fixed millisecond timestamp) and computing remaining time as `endsAt - Date.now()` survives popup closes, service worker death, browser restart, and even closing the laptop. Storing `secondsRemaining` and decrementing with setInterval breaks the moment any of those happen. This is the most important architectural decision in the project.
+
+**Chrome APIs require explicit permissions in the manifest.**
+`chrome.storage` is undefined unless `"permissions": ["storage"]` is declared. The error "Cannot read properties of undefined (reading 'local')" is the signature of a missing permission. Same pattern will apply to `chrome.notifications`, `chrome.alarms`, and `chrome.declarativeNetRequest` later.
+
+**Read errors top-to-bottom; the first line is the actual problem.**
+Stack traces look intimidating but the top line tells you what went wrong. The rest is just where. "Cannot read properties of undefined" almost always means "the thing you're trying to access wasn't initialized" — could be missing import, missing permission, missing data.
+
+**chrome.storage.local is the persistence layer.**
+Async, key-value, survives restarts. Read with `chrome.storage.local.get("key")`, write with `chrome.storage.local.set({ key: value })`. All access through `getState()`/`setState()` helpers — only one place in the file knows how state is stored, so changes are localized.
+
+**setInterval inside a service worker is a stopgap, not a solution.**
+Service workers sleep and get killed; intervals die with them. Acceptable for v1 because the popup's getState calls also trigger ticks. Will replace with `chrome.alarms` (purpose-built for "wake me up at this time") in a later session.
+
+**onMessage listeners can't be async; use an async IIFE inside.**
+Pattern: `chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => { (async () => { ... })(); return true; })`. The `return true` tells Chrome to keep the message channel open for an async response. Without it, async responses get dropped.
+
+**Render-from-state, not render-from-events.**
+The popup doesn't try to track what changed. It calls `getState`, gets back the full state, and re-renders everything from scratch every second. Simpler than diffing, less prone to UI getting out of sync with data.
+
+**Buttons should be disabled, not absent, when not applicable.**
+The four buttons (Start/Pause/Resume/Reset) are always visible; their `disabled` state changes based on the mode. Keeps the UI shape constant; user always knows what's possible.
+
+**A working UI doesn't mean a working app.**
+The popup rendered fine while every getState call was silently failing in the background. Always check both consoles, not just whether the UI looks reasonable.
+
+**Math.ceil for time display, not Math.floor.**
+With 1.4s remaining, you want "00:02" until it really hits zero, not "00:01" for 1.4 seconds. ceil rounds up; floor rounds down. Wrong choice makes the timer appear to lose a second at the start of every minute.
