@@ -86,3 +86,38 @@ The popup rendered fine while every getState call was silently failing in the ba
 
 **Math.ceil for time display, not Math.floor.**
 With 1.4s remaining, you want "00:02" until it really hits zero, not "00:01" for 1.4 seconds. ceil rounds up; floor rounds down. Wrong choice makes the timer appear to lose a second at the start of every minute.
+
+## Session 4 — Blocking, overrides, and the badge
+
+**`chrome.webNavigation.onBeforeNavigate` is the V3 way to intercept navigations.**
+Fires before a tab loads a URL. Receive a `details` object, decide whether to redirect, and call `chrome.tabs.update` if so. The `frameId !== 0` early return skips iframes (most navigations are iframes; only the top-level page matters for blocking).
+
+**Three-step early-return pattern keeps the listener fast and readable.**
+Check mode → check blocklist → check overrides. Each is an early return. By the time you reach the redirect logic, all three conditions are satisfied. No nested ifs.
+
+**Subdomain matching needs the leading-dot guard.**
+`host.endsWith("." + entry)` matches `www.claude.ai` against `claude.ai`. Without the leading dot, `evilclaude.ai` would also match — silent security bug. The leading dot makes the boundary explicit.
+
+**`chrome.runtime.getURL` builds extension-local URLs without hardcoding the extension ID.**
+Use it instead of typing `chrome-extension://[id]/path`. The ID is environment-dependent; `getURL` resolves it correctly.
+
+**`encodeURIComponent` is required when stuffing a URL into a query parameter.**
+Otherwise the `?`, `&`, `=` in the original URL would break parsing. The receiving page uses `URLSearchParams.get()` to unwrap it cleanly.
+
+**Per-host override state has natural pruning via tick.**
+Overrides are `{host, expiresAt}` objects. Every tick, filter out the ones whose `expiresAt < now`. No special "expire override" event needed — passive cleanup.
+
+**Detecting "just expired" overrides means diffing tick to tick.**
+List of overrides at the start of tick → list after pruning → the difference is what just expired. Drives the auto-redirect of open tabs that were using those overrides.
+
+**`chrome.tabs.query({})` lets the background see all open tabs.**
+Requires the `tabs` permission. Each tab has a `url` and `id`. To force-redirect, parse the URL, check the host, then call `chrome.tabs.update(tab.id, {url: newUrl})`.
+
+**Toolbar badges max ~4 characters.**
+`chrome.action.setBadgeText({text})` and `setBadgeBackgroundColor({color})` are the badge APIs. Anything over 4 chars gets clipped. Format choices: drop seconds when ≥ 10 minutes, or use a shorter notation. (Deferred fix in v0.2.x.)
+
+**Static state corruption survives restart and breaks silently.**
+Markdown-formatted string (`[www.perplexity.ai](https://...)`) ended up in the blocklist via copy-paste mishap. Code didn't crash, just silently failed to match perplexity. Caught by directly inspecting `chrome.storage.local`. Reinforces: when state lives outside the codebase, sometimes the bug is in storage, not in code.
+
+**`chrome.storage.local.clear()` is the nuclear-reset for persisted state.**
+Useful when migrating schema or recovering from corruption. State recreates from defaults on next action.

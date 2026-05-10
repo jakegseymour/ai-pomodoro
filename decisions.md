@@ -101,3 +101,33 @@ Personal-discipline tool, not a portfolio piece. No reason to be public. Can fli
 
 **GitHub handle: `jakegseymour`.**
 Same as personal site. Documented in personal site decisions.md; same applies here.
+
+## Session 4 — Blocking architecture
+
+**Blocking via `chrome.webNavigation` + `chrome.tabs.update`, not `declarativeNetRequest`.**
+DNR is the modern V3 path but requires syncing a rules database with timer state. webNavigation puts all blocking logic alongside the existing state machine — simpler for v1. May migrate later for performance/privacy if the extension goes wider.
+
+**Block page is a regular HTML file declared as `web_accessible_resources`.**
+Not an extension popup, not a content script. Tabs get redirected here. The original URL travels as a query parameter so the page knows what to display and where to send the user back to after override.
+
+**Override scope: per-host, expires at `min(now + 2min, endOfBlock)`.**
+Each bypass is an isolated decision. 2-minute fixed cap keeps friction repeatable; end-of-block cap prevents overrides leaking across natural boundaries.
+
+**Override sentence (v1, hardcoded):**
+"I am choosing to break my focus block and use AI right now. My ability to critically think for myself is at risk."
+The second sentence names the actual stake. Match is case-insensitive, whitespace-normalized, otherwise strict.
+
+**Auto-redirect on override expiry, target = block page with original URL.**
+When override expires, the tab gets force-redirected to the block page. Original URL travels as a query param so a re-override lands the user back where they were. Most ergonomic of the three options considered (alternatives: bare block page, close tab).
+
+**Toolbar badge precedence: active override countdown > work block countdown > open period countdown > empty.**
+Badge always shows the most-actionable countdown. Override (urgent) wins. Color: rust for override and work, forest green for open.
+
+**Badge format under 10 minutes: `M:SS`. Above 10 minutes: deferred fix.**
+Currently shows `10:00` clipped at 4 chars. Acceptable for v1; will fix in v0.2.x.
+
+**Blocklist hardcoded in `background.js` AND mirrored in `manifest.json` `host_permissions`.**
+Two-file dependency flagged in code comments. User-defined blocklist editing deferred to a settings UI in a later session — that work will need to update both places.
+
+**State migration handled via backfills in `getState`, not formal migrations.**
+When new fields appear in `DEFAULT_STATE`, `getState` checks for missing fields and fills them with defaults. Acceptable while schema is small and changes are additive. Real migration framework is overkill for v1.
