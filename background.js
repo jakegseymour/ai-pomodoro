@@ -116,9 +116,11 @@ function isHostBlocked(host, blocklist) {
 
 // Returns true if `host` currently has a non-expired override.
 function hasActiveOverride(host, overrides, now) {
-    return overrides.some(
-        (o) => o.host === host && o.expiresAt > now
-    );
+    return overrides.some((o) => {
+        if (o.expiresAt <= now) return false;
+        // Match exact host OR subdomain of overridden host.
+        return host === o.host || host.endsWith("." + o.host);
+    });
 }
 
 // Drops expired overrides from the list.
@@ -134,7 +136,8 @@ function formatBadge(ms) {
     const totalSeconds = Math.ceil(ms / 1000);
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
-    // Chrome badges are 4 chars max; show "M:SS" when minutes > 0, "0:SS" otherwise.
+    // Chrome badges fit ~4 chars. Use "M:SS" under 10 min, otherwise just minutes.
+    if (minutes >= 10) return String(minutes);
     return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 

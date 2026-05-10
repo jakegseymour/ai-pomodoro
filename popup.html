@@ -85,6 +85,38 @@
         button.primary:hover {
             background: #000;
         }
+
+        .overrides {
+            margin-bottom: 16px;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .overrides:empty {
+            display: none;
+        }
+
+        .override-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            padding: 4px 8px;
+            background: rgba(184, 92, 56, 0.08);
+            border-left: 2px solid #b85c38;
+            margin-bottom: 4px;
+            border-radius: 2px;
+        }
+
+        .override-host {
+            font-family: "SF Mono", Menlo, monospace;
+            color: #1a1a1a;
+        }
+
+        .override-time {
+            color: #b85c38;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
     </style>
 </head>
 
@@ -92,6 +124,7 @@
     <h1>ai-pomodoro</h1>
     <div class="mode" id="mode">idle</div>
     <div class="time" id="time">--:--</div>
+    <div class="overrides" id="overrides"></div>
     <div class="buttons">
         <button id="start" class="primary">Start</button>
         <button id="pause">Pause</button>

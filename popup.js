@@ -6,6 +6,7 @@ const startBtn = document.getElementById("start");
 const pauseBtn = document.getElementById("pause");
 const resumeBtn = document.getElementById("resume");
 const resetBtn = document.getElementById("reset");
+const overridesEl = document.getElementById("overrides");
 
 let renderInterval = null;
 
@@ -48,12 +49,46 @@ function render(state) {
         timeEl.textContent = "--:--";
     }
 
+    // Active overrides
+    renderOverrides(state.overrides || []);
+
     // Button availability based on state
     const isIdle = state.mode === "idle";
     startBtn.disabled = !isIdle;
     pauseBtn.disabled = isIdle || !state.running;
     resumeBtn.disabled = isIdle || state.running;
     resetBtn.disabled = isIdle;
+}
+
+function renderOverrides(overrides) {
+    const now = Date.now();
+    const active = overrides.filter((o) => o.expiresAt > now);
+    if (active.length === 0) {
+        overridesEl.innerHTML = "";
+        return;
+    }
+    // Sort by soonest-expiring first
+    active.sort((a, b) => a.expiresAt - b.expiresAt);
+    overridesEl.innerHTML = active
+        .map((o) => {
+            const remaining = formatTime(o.expiresAt - now);
+            return `
+        <div class="override-row">
+          <span class="override-host">${escapeHtml(o.host)}</span>
+          <span class="override-time">${remaining}</span>
+        </div>
+      `;
+        })
+        .join("");
+}
+
+function escapeHtml(s) {
+    return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
 }
 
 // ---- Refresh state from background and render ----
