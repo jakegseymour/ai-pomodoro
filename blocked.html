@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Focus block — AI Pomodoro</title>
+    <style>
+        :root {
+            --color-bg: #faf6f1;
+            --color-ink: #1a1a1a;
+            --color-muted: #888;
+            --color-rust: #b85c38;
+            --color-border: #e0d8cc;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background: var(--color-bg);
+            color: var(--color-ink);
+            font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+        }
+
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 32px;
+        }
+
+        .container {
+            max-width: 560px;
+            width: 100%;
+            text-align: left;
+        }
+
+        .label {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--color-rust);
+            margin-bottom: 12px;
+        }
+
+        h1 {
+            font-size: 32px;
+            font-weight: 600;
+            line-height: 1.2;
+            margin: 0 0 16px 0;
+        }
+
+        .host {
+            font-family: "SF Mono", Menlo, monospace;
+            background: rgba(184, 92, 56, 0.1);
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
+        .time-remaining {
+            font-size: 14px;
+            color: var(--color-muted);
+            margin-bottom: 32px;
+        }
+
+        .time-remaining strong {
+            color: var(--color-ink);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .override-section {
+            border-top: 1px solid var(--color-border);
+            padding-top: 24px;
+        }
+
+        .override-prompt {
+            font-size: 14px;
+            color: var(--color-muted);
+            margin-bottom: 12px;
+        }
+
+        .override-sentence {
+            font-size: 15px;
+            font-style: italic;
+            line-height: 1.5;
+            color: var(--color-ink);
+            margin-bottom: 16px;
+            padding: 12px 16px;
+            background: rgba(0, 0, 0, 0.03);
+            border-left: 3px solid var(--color-rust);
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 80px;
+            padding: 12px;
+            font-family: inherit;
+            font-size: 14px;
+            line-height: 1.5;
+            border: 1px solid var(--color-border);
+            border-radius: 4px;
+            resize: vertical;
+            background: #fff;
+            color: var(--color-ink);
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--color-rust);
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        button {
+            font-family: inherit;
+            font-size: 14px;
+            padding: 10px 20px;
+            border: 1px solid var(--color-border);
+            background: #fff;
+            color: var(--color-ink);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #f0e8dc;
+        }
+
+        button.primary {
+            background: var(--color-ink);
+            color: #fff;
+            border-color: var(--color-ink);
+        }
+
+        button.primary:hover {
+            background: #000;
+        }
+
+        button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .feedback {
+            margin-top: 12px;
+            font-size: 13px;
+            min-height: 18px;
+        }
+
+        .feedback.error {
+            color: var(--color-rust);
+        }
+
+        .feedback.success {
+            color: #2d5f3f;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="label">Focus block in progress</div>
+        <h1>You chose to step away from <span class="host" id="host">this site</span>.</h1>
+        <div class="time-remaining">
+            Block ends in <strong id="time">--:--</strong>.
+        </div>
+        <div class="override-section">
+            <div class="override-prompt">If you need to override this block, type the following sentence exactly:</div>
+            <div class="override-sentence" id="sentence"></div>
+            <textarea id="input" placeholder="Type the sentence here…" autofocus></textarea>
+            <div class="actions">
+                <button id="submit" class="primary">Override block</button>
+                <button id="back">Go back</button>
+            </div>
+            <div class="feedback" id="feedback"></div>
+        </div>
+    </div>
+</body>
+<script src="blocked.js"></script>
+
+</html>

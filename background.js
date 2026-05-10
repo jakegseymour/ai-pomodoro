@@ -3,9 +3,21 @@
 console.log("ai-pomodoro: background script loaded");
 
 // ---- Constants ----
+
 const DEFAULT_WORK_MINUTES = 15;
 const DEFAULT_OPEN_MINUTES = 15;
 const TICK_INTERVAL_SECONDS = 1;
+const OVERRIDE_MAX_MS = 2 * 60 * 1000; // 2 minutes
+
+// Default blocklist. Hardcoded for v1; user-defined editing is a later session.
+// IMPORTANT: changes here must be mirrored in manifest.json's host_permissions.
+const DEFAULT_BLOCKLIST = [
+    "claude.ai",
+    "chatgpt.com",
+    "gemini.google.com",
+    "www.perplexity.ai",
+    "copilot.microsoft.com",
+];
 
 // ---- State helpers ----
 // State shape:
@@ -13,9 +25,11 @@ const TICK_INTERVAL_SECONDS = 1;
 //   mode: "idle" | "work" | "open",
 //   running: boolean,
 //   endsAt: number (ms timestamp) | null,
-//   pausedRemainingMs: number | null,  // set when paused, used to resume
+//   pausedRemainingMs: number | null,
 //   workMinutes: number,
-//   openMinutes: number
+//   openMinutes: number,
+//   overrides: Array<{ host: string, expiresAt: number }>,
+//   blocklist: Array<string>
 // }
 
 const DEFAULT_STATE = {
@@ -25,26 +39,34 @@ const DEFAULT_STATE = {
     pausedRemainingMs: null,
     workMinutes: DEFAULT_WORK_MINUTES,
     openMinutes: DEFAULT_OPEN_MINUTES,
+    overrides: [],
+    blocklist: [...DEFAULT_BLOCKLIST],
 };
 
 async function getState() {
     const result = await chrome.storage.local.get("state");
-    return result.state || { ...DEFAULT_STATE };
+    const state = result.state || { ...DEFAULT_STATE };
+    // Backfill new fields for state stored before they existed.
+    if (!state.overrides) state.overrides = [];
+    if (!state.blocklist) state.blocklist = [...DEFAULT_BLOCKLIST];
+    return state;
 }
 
 async function setState(state) {
     await chrome.storage.local.set({ state });
 }
 
-// ---- Public actions ----
+// ---- Action functions ----
 
 async function startSession(workMinutes, openMinutes) {
     const now = Date.now();
+    const current = await getState();
     const state = {
+        ...DEFAULT_STATE,
+        blocklist: current.blocklist,
         mode: "work",
         running: true,
         endsAt: now + workMinutes * 60 * 1000,
-        pausedRemainingMs: null,
         workMinutes,
         openMinutes,
     };
@@ -74,48 +96,211 @@ async function resume() {
 }
 
 async function reset() {
-    await setState({ ...DEFAULT_STATE });
+    const state = await getState();
+    await setState({
+        ...DEFAULT_STATE,
+        blocklist: state.blocklist,
+    });
     console.log("ai-pomodoro: reset");
 }
 
-// ---- Tick: check whether current block has ended, advance if so ----
+// ---- Override helpers ----
 
-async function tick() {
-    const state = await getState();
-    if (!state.running || state.mode === "idle" || state.endsAt == null) return;
+// Returns true if `host` is on the blocklist (also matches subdomains).
+function isHostBlocked(host, blocklist) {
+    if (!host) return false;
+    return blocklist.some(
+        (entry) => host === entry || host.endsWith("." + entry)
+    );
+}
 
-    if (Date.now() >= state.endsAt) {
-        // Block ended; advance to the next mode
-        if (state.mode === "work") {
-            state.mode = "open";
-            state.endsAt = Date.now() + state.openMinutes * 60 * 1000;
-        } else if (state.mode === "open") {
-            state.mode = "work";
-            state.endsAt = Date.now() + state.workMinutes * 60 * 1000;
+// Returns true if `host` currently has a non-expired override.
+function hasActiveOverride(host, overrides, now) {
+    return overrides.some(
+        (o) => o.host === host && o.expiresAt > now
+    );
+}
+
+// Drops expired overrides from the list.
+function pruneOverrides(overrides, now) {
+    return overrides.filter((o) => o.expiresAt > now);
+}
+
+// ---- Badge helpers ----
+// Badge precedence: active override countdown > work block countdown > empty.
+
+function formatBadge(ms) {
+    if (ms <= 0) return "";
+    const totalSeconds = Math.ceil(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    // Chrome badges are 4 chars max; show "M:SS" when minutes > 0, "0:SS" otherwise.
+    return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+// ---- Auto-redirect tabs when overrides expire ----
+// Called when we detect that an override just expired. Finds open tabs whose
+// host matches the expired override and redirects them to the block page.
+
+async function redirectExpiredOverrideTabs(expiredHosts, blocklist, mode, running) {
+    // Only redirect if we're in a running work block; otherwise blocking is off.
+    if (mode !== "work" || !running) return;
+    if (expiredHosts.length === 0) return;
+
+    const tabs = await chrome.tabs.query({});
+    for (const tab of tabs) {
+        if (!tab.url || tab.id == null) continue;
+        let host;
+        try {
+            host = new URL(tab.url).host;
+        } catch {
+            continue;
         }
-        await setState(state);
-        console.log("ai-pomodoro: mode advanced", state);
+        // Only redirect tabs whose host is on the blocklist AND was just overridden
+        if (!isHostBlocked(host, blocklist)) continue;
+        if (!expiredHosts.some((eh) => host === eh || host.endsWith("." + eh))) continue;
+
+        const blockedUrl = chrome.runtime.getURL(
+            "blocked.html?url=" + encodeURIComponent(tab.url)
+        );
+        chrome.tabs.update(tab.id, { url: blockedUrl });
+        console.log("ai-pomodoro: redirecting expired-override tab", host);
     }
 }
 
-// ---- Set up the tick interval ----
-// Note: setInterval inside a service worker is unreliable because the worker can sleep.
-// We'll switch to chrome.alarms in a later session for robustness. For now, this works
-// while the worker is active, and the popup will also trigger checks when it opens.
+async function updateBadge(state, now) {
+    let text = "";
+    let color = "#888888";
+
+    // Find the soonest-expiring active override
+    const activeOverrides = state.overrides.filter((o) => o.expiresAt > now);
+    if (activeOverrides.length > 0) {
+        const soonest = activeOverrides.reduce((min, o) =>
+            o.expiresAt < min.expiresAt ? o : min
+        );
+        text = formatBadge(soonest.expiresAt - now);
+        color = "#b85c38"; // rust — matches the "warning" tone
+    } else if (state.mode === "work" && state.running && state.endsAt) {
+        text = formatBadge(state.endsAt - now);
+        color = "#b85c38"; // rust for work mode
+    } else if (state.mode === "open" && state.running && state.endsAt) {
+        text = formatBadge(state.endsAt - now);
+        color = "#2d5f3f"; // forest green for open mode
+    }
+
+    await chrome.action.setBadgeText({ text });
+    await chrome.action.setBadgeBackgroundColor({ color });
+}
+
+async function requestOverride(host) {
+    const state = await getState();
+    if (state.mode !== "work" || !state.endsAt) {
+        return { ok: false, error: "Not in a work block" };
+    }
+    const now = Date.now();
+    // Override expires at min(now + 2min, end of current block)
+    const expiresAt = Math.min(now + OVERRIDE_MAX_MS, state.endsAt);
+    // Remove any prior override for this host, then add the new one
+    const filtered = state.overrides.filter((o) => o.host !== host);
+    filtered.push({ host, expiresAt });
+    state.overrides = filtered;
+    await setState(state);
+    console.log("ai-pomodoro: override granted", { host, expiresAt });
+    return { ok: true, expiresAt };
+}
+
+// ---- Tick: advance mode if block ended; prune expired overrides ----
+
+async function tick() {
+    const state = await getState();
+    const now = Date.now();
+    let changed = false;
+
+    // Find overrides that JUST expired (so we can redirect their tabs)
+    const previouslyActive = state.overrides.filter((o) => o.expiresAt > 0);
+    const stillActive = pruneOverrides(state.overrides, now);
+    const expiredHosts = previouslyActive
+        .filter((o) => !stillActive.some((s) => s.host === o.host))
+        .map((o) => o.host);
+
+    if (stillActive.length !== state.overrides.length) {
+        state.overrides = stillActive;
+        changed = true;
+    }
+
+    // Advance mode if current block ended
+    if (state.running && state.mode !== "idle" && state.endsAt && now >= state.endsAt) {
+        if (state.mode === "work") {
+            state.mode = "open";
+            state.endsAt = now + state.openMinutes * 60 * 1000;
+            state.overrides = [];
+        } else if (state.mode === "open") {
+            state.mode = "work";
+            state.endsAt = now + state.workMinutes * 60 * 1000;
+        }
+        changed = true;
+        console.log("ai-pomodoro: mode advanced", state);
+    }
+
+    if (changed) {
+        await setState(state);
+    }
+
+    // Redirect tabs whose overrides just expired
+    if (expiredHosts.length > 0) {
+        await redirectExpiredOverrideTabs(expiredHosts, state.blocklist, state.mode, state.running);
+    }
+
+    // Update the toolbar badge
+    await updateBadge(state, now);
+}
+
+// ---- Redirect interceptor ----
+// Fires on every top-level navigation. We check the URL against the blocklist
+// and the current state, and redirect to the block page if needed.
+
+chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
+    // Only intercept top-level navigations (not iframes, prefetches, etc.)
+    if (details.frameId !== 0) return;
+
+    let host;
+    try {
+        host = new URL(details.url).host;
+    } catch {
+        return; // Not a parseable URL; let it through
+    }
+
+    const state = await getState();
+
+    // Only block during a running work block
+    if (state.mode !== "work" || !state.running) return;
+
+    // Check if host is on the blocklist
+    if (!isHostBlocked(host, state.blocklist)) return;
+
+    // Check if there's an active override for this host
+    if (hasActiveOverride(host, state.overrides, Date.now())) return;
+
+    // All checks passed: redirect to block page
+    const blockedUrl = chrome.runtime.getURL(
+        "blocked.html?url=" + encodeURIComponent(details.url)
+    );
+    chrome.tabs.update(details.tabId, { url: blockedUrl });
+    console.log("ai-pomodoro: blocked navigation to", host);
+});
+
+
 setInterval(tick, TICK_INTERVAL_SECONDS * 1000);
 
-// ---- Message handler: how the popup talks to the background ----
+// ---- Message handler ----
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log("ai-pomodoro: received message", message);
 
-    // We use an async IIFE because onMessage listeners can't be async directly,
-    // but we still want async/await for storage calls.
     (async () => {
         try {
             switch (message.type) {
                 case "getState": {
-                    // Run a tick first so the state we return is fresh
                     await tick();
                     const state = await getState();
                     sendResponse({ ok: true, state });
@@ -131,20 +316,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 }
                 case "pause": {
                     await pause();
-                    const state = await getState();
-                    sendResponse({ ok: true, state });
+                    sendResponse({ ok: true, state: await getState() });
                     break;
                 }
                 case "resume": {
                     await resume();
-                    const state = await getState();
-                    sendResponse({ ok: true, state });
+                    sendResponse({ ok: true, state: await getState() });
                     break;
                 }
                 case "reset": {
                     await reset();
-                    const state = await getState();
-                    sendResponse({ ok: true, state });
+                    sendResponse({ ok: true, state: await getState() });
+                    break;
+                }
+                case "requestOverride": {
+                    if (!message.host) {
+                        sendResponse({ ok: false, error: "Missing host" });
+                        break;
+                    }
+                    const result = await requestOverride(message.host);
+                    sendResponse(result);
                     break;
                 }
                 default:
@@ -156,6 +347,5 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
     })();
 
-    // Returning true tells Chrome we'll call sendResponse asynchronously.
     return true;
 });

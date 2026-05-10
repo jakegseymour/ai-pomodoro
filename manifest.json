@@ -1,10 +1,19 @@
 {
     "manifest_version": 3,
     "name": "AI Pomodoro",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "description": "Forced AI-free intervals to build the muscle of thinking without guardrails.",
     "permissions": [
-        "storage"
+        "storage",
+        "webNavigation",
+        "tabs"
+    ],
+    "host_permissions": [
+        "*://claude.ai/*",
+        "*://chatgpt.com/*",
+        "*://gemini.google.com/*",
+        "*://www.perplexity.ai/*",
+        "*://copilot.microsoft.com/*"
     ],
     "action": {
         "default_popup": "popup.html",
@@ -12,5 +21,15 @@
     },
     "background": {
         "service_worker": "background.js"
-    }
+    },
+    "web_accessible_resources": [
+        {
+            "resources": [
+                "blocked.html"
+            ],
+            "matches": [
+                "<all_urls>"
+            ]
+        }
+    ]
 }
