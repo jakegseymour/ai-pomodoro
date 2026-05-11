@@ -165,6 +165,17 @@
         .duration-input-error {
             border-color: #b85c38;
         }
+
+        .round-progress {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 12px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .round-progress:empty {
+            display: none;
+        }
     </style>
 </head>
 
@@ -179,9 +190,14 @@
             <label for="open-input" class="duration-label">Open (min)</label>
             <input type="number" id="open-input" class="duration-input" min="1" max="60" step="1" value="15">
         </div>
+        <div class="duration-field">
+            <label for="rounds-input" class="duration-label">Rounds</label>
+            <input type="number" id="rounds-input" class="duration-input" min="1" max="20" step="1" value="4">
+        </div>
     </div>
     <div class="mode" id="mode">idle</div>
     <div class="time" id="time">--:--</div>
+    <div class="round-progress" id="round-progress"></div>
     <div class="overrides" id="overrides"></div>
     <div class="buttons">
         <button id="start" class="primary">Start</button>

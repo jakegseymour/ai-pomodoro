@@ -9,6 +9,8 @@ const resetBtn = document.getElementById("reset");
 const overridesEl = document.getElementById("overrides");
 const workInput = document.getElementById("work-input");
 const openInput = document.getElementById("open-input");
+const roundsInput = document.getElementById("rounds-input");
+const roundProgressEl = document.getElementById("round-progress");
 
 let renderInterval = null;
 
@@ -59,6 +61,14 @@ function render(state) {
     const isIdle = state.mode === "idle";
     workInput.disabled = !isIdle;
     openInput.disabled = !isIdle;
+    roundsInput.disabled = !isIdle;
+
+    // Round progress
+    if (state.mode !== "idle" && state.currentRound > 0 && state.rounds > 0) {
+        roundProgressEl.textContent = `Round ${state.currentRound} of ${state.rounds}`;
+    } else {
+        roundProgressEl.textContent = "";
+    }
 
     // Button availability based on state
     startBtn.disabled = !isIdle;
@@ -121,24 +131,26 @@ async function refresh() {
 // ---- Button handlers ----
 
 startBtn.addEventListener("click", async () => {
-    // Validate inputs
     const workMinutes = parseInt(workInput.value, 10);
     const openMinutes = parseInt(openInput.value, 10);
+    const rounds = parseInt(roundsInput.value, 10);
 
     const workValid = Number.isInteger(workMinutes) && workMinutes >= 1 && workMinutes <= 60;
     const openValid = Number.isInteger(openMinutes) && openMinutes >= 1 && openMinutes <= 60;
+    const roundsValid = Number.isInteger(rounds) && rounds >= 1 && rounds <= 20;
 
-    // Visual feedback for invalid inputs
     workInput.classList.toggle("duration-input-error", !workValid);
     openInput.classList.toggle("duration-input-error", !openValid);
+    roundsInput.classList.toggle("duration-input-error", !roundsValid);
 
-    if (!workValid || !openValid) {
-        // Don't send; let the user fix the inputs
-        return;
-    }
+    if (!workValid || !openValid || !roundsValid) return;
 
-    await send({ type: "startSession", workMinutes, openMinutes });
+    await send({ type: "startSession", workMinutes, openMinutes, rounds });
     await refresh();
+});
+
+roundsInput.addEventListener("input", () => {
+    roundsInput.classList.remove("duration-input-error");
 });
 
 workInput.addEventListener("input", () => {
@@ -180,5 +192,14 @@ window.addEventListener("unload", () => {
     if (response && response.ok) {
         workInput.value = response.state.workMinutes ?? 15;
         openInput.value = response.state.openMinutes ?? 15;
+    }
+})();
+
+(async () => {
+    const response = await send({ type: "getState" });
+    if (response && response.ok) {
+        workInput.value = response.state.workMinutes ?? 15;
+        openInput.value = response.state.openMinutes ?? 15;
+        roundsInput.value = response.state.rounds ?? 4;
     }
 })();

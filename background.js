@@ -6,6 +6,7 @@ console.log("ai-pomodoro: background script loaded");
 
 const DEFAULT_WORK_MINUTES = 15;
 const DEFAULT_OPEN_MINUTES = 15;
+const DEFAULT_ROUNDS = 4;
 const OVERRIDE_MAX_MS = 2 * 60 * 1000; // 2 minutes
 
 // Default blocklist. Hardcoded for v1; user-defined editing is a later session.
@@ -41,6 +42,8 @@ const DEFAULT_STATE = {
     overrides: [],
     blocklist: [...DEFAULT_BLOCKLIST],
     lastPromptedAt: null,
+    rounds: 4,           // target number of rounds for the next session
+    currentRound: 0,     // 0 when idle; 1..rounds when running (counts work blocks completed)
 };
 
 async function getState() {
@@ -49,6 +52,8 @@ async function getState() {
     if (!state.overrides) state.overrides = [];
     if (!state.blocklist) state.blocklist = [...DEFAULT_BLOCKLIST];
     if (state.lastPromptedAt === undefined) state.lastPromptedAt = null;
+    if (state.rounds === undefined) state.rounds = DEFAULT_ROUNDS;
+    if (state.currentRound === undefined) state.currentRound = 0;
     return state;
 }
 async function setState(state) {
@@ -57,17 +62,20 @@ async function setState(state) {
 
 // ---- Action functions ----
 
-async function startSession(workMinutes, openMinutes) {
+async function startSession(workMinutes, openMinutes, rounds) {
     const now = Date.now();
     const current = await getState();
     const state = {
         ...DEFAULT_STATE,
         blocklist: current.blocklist,
+        lastPromptedAt: current.lastPromptedAt,
         mode: "work",
         running: true,
         endsAt: now + workMinutes * 60 * 1000,
         workMinutes,
         openMinutes,
+        rounds,
+        currentRound: 1,
     };
     await setState(state);
     console.log("ai-pomodoro: session started", state);
@@ -121,6 +129,8 @@ async function reset() {
         blocklist: state.blocklist,
         workMinutes: state.workMinutes,
         openMinutes: state.openMinutes,
+        rounds: state.rounds,
+        lastPromptedAt: state.lastPromptedAt,
     });
     console.log("ai-pomodoro: reset");
     await clearBlockPages();
@@ -379,16 +389,40 @@ async function tick() {
     // Advance mode if current block ended
     let justEnteredOpen = false;
     let justEnteredWork = false;
+    let sessionJustEnded = false;
     if (state.running && state.mode !== "idle" && state.endsAt && now >= state.endsAt) {
         if (state.mode === "work") {
-            state.mode = "open";
-            state.endsAt = now + state.openMinutes * 60 * 1000;
-            state.overrides = [];
-            justEnteredOpen = true;
+            // Work block ended.
+            if (state.currentRound >= state.rounds) {
+                // This was the last work block. Move to the final open block (option A: last open included).
+                state.mode = "open";
+                state.endsAt = now + state.openMinutes * 60 * 1000;
+                state.overrides = [];
+                justEnteredOpen = true;
+            } else {
+                // Mid-session work block ending; advance to open.
+                state.mode = "open";
+                state.endsAt = now + state.openMinutes * 60 * 1000;
+                state.overrides = [];
+                justEnteredOpen = true;
+            }
         } else if (state.mode === "open") {
-            state.mode = "work";
-            state.endsAt = now + state.workMinutes * 60 * 1000;
-            justEnteredWork = true;
+            // Open block ended. Are we done?
+            if (state.currentRound >= state.rounds) {
+                // Session complete.
+                state.mode = "idle";
+                state.running = false;
+                state.endsAt = null;
+                state.overrides = [];
+                state.currentRound = 0;
+                sessionJustEnded = true;
+            } else {
+                // Advance to next round's work block.
+                state.currentRound = state.currentRound + 1;
+                state.mode = "work";
+                state.endsAt = now + state.workMinutes * 60 * 1000;
+                justEnteredWork = true;
+            }
         }
         changed = true;
         console.log("ai-pomodoro: mode advanced", state);
@@ -396,6 +430,12 @@ async function tick() {
 
     if (changed) {
         await setState(state);
+    }
+
+    // If the session just ended, clear block pages and fire a completion notification.
+    if (sessionJustEnded) {
+        await clearBlockPages();
+        await fireSessionCompleteNotification(state.rounds);
     }
 
     // If a work block just ended, clear existing block pages.
@@ -504,9 +544,8 @@ chrome.notifications.onButtonClicked.addListener(async (notificationId, buttonIn
     chrome.notifications.clear(STARTUP_PROMPT_NOTIFICATION_ID);
 
     if (buttonIndex === 0) {
-        // "Yes, start now" — start a session with last-used durations.
         const state = await getState();
-        await startSession(state.workMinutes, state.openMinutes);
+        await startSession(state.workMinutes, state.openMinutes, state.rounds);
         console.log("ai-pomodoro: session started from startup prompt");
     }
     // buttonIndex === 1 ("Not now") — already cleared; do nothing.
@@ -518,6 +557,18 @@ chrome.notifications.onClosed.addListener((notificationId) => {
         console.log("ai-pomodoro: startup prompt dismissed");
     }
 });
+
+const SESSION_COMPLETE_NOTIFICATION_ID = "ai-pomodoro-session-complete";
+
+async function fireSessionCompleteNotification(roundsCompleted) {
+    chrome.notifications.create(SESSION_COMPLETE_NOTIFICATION_ID, {
+        type: "basic",
+        iconUrl: chrome.runtime.getURL("icon.png"),
+        title: "Session complete",
+        message: `${roundsCompleted} round${roundsCompleted !== 1 ? "s" : ""} done. AI sites unblocked.`,
+    });
+    console.log("ai-pomodoro: session complete notification fired");
+}
 
 // ---- Alarm-based tick ----
 // Service workers can be killed by Chrome at any time; setInterval dies with them.
@@ -568,7 +619,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 case "startSession": {
                     const workMinutes = message.workMinutes ?? DEFAULT_WORK_MINUTES;
                     const openMinutes = message.openMinutes ?? DEFAULT_OPEN_MINUTES;
-                    await startSession(workMinutes, openMinutes);
+                    const rounds = message.rounds ?? DEFAULT_ROUNDS;
+                    await startSession(workMinutes, openMinutes, rounds);
                     const state = await getState();
                     sendResponse({ ok: true, state });
                     break;
