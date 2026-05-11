@@ -40,17 +40,17 @@ const DEFAULT_STATE = {
     openMinutes: DEFAULT_OPEN_MINUTES,
     overrides: [],
     blocklist: [...DEFAULT_BLOCKLIST],
+    lastPromptedAt: null,
 };
 
 async function getState() {
     const result = await chrome.storage.local.get("state");
     const state = result.state || { ...DEFAULT_STATE };
-    // Backfill new fields for state stored before they existed.
     if (!state.overrides) state.overrides = [];
     if (!state.blocklist) state.blocklist = [...DEFAULT_BLOCKLIST];
+    if (state.lastPromptedAt === undefined) state.lastPromptedAt = null;
     return state;
 }
-
 async function setState(state) {
     await chrome.storage.local.set({ state });
 }
@@ -450,6 +450,75 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
     console.log("ai-pomodoro: blocked navigation to", host);
 });
 
+// ---- Startup prompt ----
+// On Chrome startup, fire a desktop notification asking the user if they want
+// to start a session. Gated by a minimum interval (5 hours) so it doesn't
+// fire on every micro-restart of Chrome.
+
+const STARTUP_PROMPT_NOTIFICATION_ID = "ai-pomodoro-startup";
+const STARTUP_PROMPT_MIN_INTERVAL_MS = 5 * 60 * 60 * 1000; // 5 hours
+
+async function maybeShowStartupPrompt() {
+    const state = await getState();
+
+    // Don't prompt if a session is already running.
+    if (state.mode !== "idle") {
+        console.log("ai-pomodoro: skipping startup prompt; session in progress");
+        return;
+    }
+
+    const now = Date.now();
+    if (
+        state.lastPromptedAt != null &&
+        now - state.lastPromptedAt < STARTUP_PROMPT_MIN_INTERVAL_MS
+    ) {
+        const minutesAgo = Math.floor((now - state.lastPromptedAt) / 60000);
+        console.log(`ai-pomodoro: skipping startup prompt; last prompted ${minutesAgo} min ago`);
+        return;
+    }
+
+    // Update lastPromptedAt before firing so we don't double-prompt on a race.
+    state.lastPromptedAt = now;
+    await setState(state);
+
+    chrome.notifications.create(STARTUP_PROMPT_NOTIFICATION_ID, {
+        type: "basic",
+        iconUrl: chrome.runtime.getURL("icon.png"),
+        title: "Start a focus session?",
+        message: `Work ${state.workMinutes} min / open ${state.openMinutes} min, repeating.`,
+        buttons: [
+            { title: "Yes, start now" },
+            { title: "Not now" },
+        ],
+        requireInteraction: true,
+    });
+
+    console.log("ai-pomodoro: startup prompt fired");
+}
+
+// Handle clicks on notification buttons.
+chrome.notifications.onButtonClicked.addListener(async (notificationId, buttonIndex) => {
+    if (notificationId !== STARTUP_PROMPT_NOTIFICATION_ID) return;
+
+    // Clear the notification regardless of which button was clicked.
+    chrome.notifications.clear(STARTUP_PROMPT_NOTIFICATION_ID);
+
+    if (buttonIndex === 0) {
+        // "Yes, start now" — start a session with last-used durations.
+        const state = await getState();
+        await startSession(state.workMinutes, state.openMinutes);
+        console.log("ai-pomodoro: session started from startup prompt");
+    }
+    // buttonIndex === 1 ("Not now") — already cleared; do nothing.
+});
+
+// Also clear if the user dismisses without clicking a button.
+chrome.notifications.onClosed.addListener((notificationId) => {
+    if (notificationId === STARTUP_PROMPT_NOTIFICATION_ID) {
+        console.log("ai-pomodoro: startup prompt dismissed");
+    }
+});
+
 // ---- Alarm-based tick ----
 // Service workers can be killed by Chrome at any time; setInterval dies with them.
 // chrome.alarms is registered at the browser level and survives worker death.
@@ -476,6 +545,7 @@ chrome.runtime.onInstalled.addListener(() => {
 
 chrome.runtime.onStartup.addListener(() => {
     registerTickAlarm();
+    maybeShowStartupPrompt();
 });
 
 // Also call once on script load. Harmless if alarm already exists.
