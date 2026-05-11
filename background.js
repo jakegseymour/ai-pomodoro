@@ -6,7 +6,6 @@ console.log("ai-pomodoro: background script loaded");
 
 const DEFAULT_WORK_MINUTES = 15;
 const DEFAULT_OPEN_MINUTES = 15;
-const TICK_INTERVAL_SECONDS = 1;
 const OVERRIDE_MAX_MS = 2 * 60 * 1000; // 2 minutes
 
 // Default blocklist. Hardcoded for v1; user-defined editing is a later session.
@@ -72,6 +71,7 @@ async function startSession(workMinutes, openMinutes) {
     };
     await setState(state);
     console.log("ai-pomodoro: session started", state);
+    await blockOpenTabs(state);
 }
 
 async function pause() {
@@ -83,6 +83,7 @@ async function pause() {
     state.endsAt = null;
     await setState(state);
     console.log("ai-pomodoro: paused", state);
+    await clearBlockPages();
 }
 
 async function resume() {
@@ -93,6 +94,7 @@ async function resume() {
     state.pausedRemainingMs = null;
     await setState(state);
     console.log("ai-pomodoro: resumed", state);
+    await blockOpenTabs(state);
 }
 
 async function reset() {
@@ -102,6 +104,7 @@ async function reset() {
         blocklist: state.blocklist,
     });
     console.log("ai-pomodoro: reset");
+    await clearBlockPages();
 }
 
 // ---- Override helpers ----
@@ -139,6 +142,56 @@ function formatBadge(ms) {
     // Chrome badges fit ~4 chars. Use "M:SS" under 10 min, otherwise just minutes.
     if (minutes >= 10) return String(minutes);
     return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+// ---- Tab-side enforcement helpers ----
+
+// Force any currently-open tab whose host is on the blocklist (and not overridden)
+// to navigate to the block page. Used when a session starts.
+async function blockOpenTabs(state) {
+    if (state.mode !== "work" || !state.running) return;
+    const now = Date.now();
+    const tabs = await chrome.tabs.query({});
+    for (const tab of tabs) {
+        if (!tab.url || tab.id == null) continue;
+        let host;
+        try {
+            host = new URL(tab.url).host;
+        } catch {
+            continue;
+        }
+        if (!isHostBlocked(host, state.blocklist)) continue;
+        if (hasActiveOverride(host, state.overrides, now)) continue;
+        // Skip tabs already on our block page so we don't loop.
+        if (tab.url.startsWith(chrome.runtime.getURL(""))) continue;
+
+        const blockedUrl = chrome.runtime.getURL(
+            "blocked.html?url=" + encodeURIComponent(tab.url)
+        );
+        chrome.tabs.update(tab.id, { url: blockedUrl });
+        console.log("ai-pomodoro: blocked open tab", host);
+    }
+}
+
+// Find any open tab currently sitting on our block page and send it back
+// to the original URL. Used when a session pauses or resets.
+async function clearBlockPages() {
+    const blockPagePrefix = chrome.runtime.getURL("blocked.html");
+    const tabs = await chrome.tabs.query({});
+    for (const tab of tabs) {
+        if (!tab.url || tab.id == null) continue;
+        if (!tab.url.startsWith(blockPagePrefix)) continue;
+        // Extract the original URL from the query string.
+        try {
+            const params = new URL(tab.url).searchParams;
+            const original = params.get("url");
+            if (!original) continue;
+            chrome.tabs.update(tab.id, { url: original });
+            console.log("ai-pomodoro: cleared block page, returning to", original);
+        } catch {
+            // ignore
+        }
+    }
 }
 
 // ---- Auto-redirect tabs when overrides expire ----
@@ -232,14 +285,18 @@ async function tick() {
     }
 
     // Advance mode if current block ended
+    let justEnteredOpen = false;
+    let justEnteredWork = false;
     if (state.running && state.mode !== "idle" && state.endsAt && now >= state.endsAt) {
         if (state.mode === "work") {
             state.mode = "open";
             state.endsAt = now + state.openMinutes * 60 * 1000;
             state.overrides = [];
+            justEnteredOpen = true;
         } else if (state.mode === "open") {
             state.mode = "work";
             state.endsAt = now + state.workMinutes * 60 * 1000;
+            justEnteredWork = true;
         }
         changed = true;
         console.log("ai-pomodoro: mode advanced", state);
@@ -247,6 +304,15 @@ async function tick() {
 
     if (changed) {
         await setState(state);
+    }
+
+    // If a work block just ended, clear existing block pages.
+    if (justEnteredOpen) {
+        await clearBlockPages();
+    }
+    // If a new work block just started, block any currently-open tabs on the blocklist.
+    if (justEnteredWork) {
+        await blockOpenTabs(state);
     }
 
     // Redirect tabs whose overrides just expired
@@ -292,8 +358,36 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
     console.log("ai-pomodoro: blocked navigation to", host);
 });
 
+// ---- Alarm-based tick ----
+// Service workers can be killed by Chrome at any time; setInterval dies with them.
+// chrome.alarms is registered at the browser level and survives worker death.
+// Minimum interval is 30 seconds in production extensions.
 
-setInterval(tick, TICK_INTERVAL_SECONDS * 1000);
+const TICK_ALARM_NAME = "ai-pomodoro-tick";
+
+async function registerTickAlarm() {
+    // Calling create() with the same name updates an existing alarm. Safe to re-call.
+    await chrome.alarms.create(TICK_ALARM_NAME, { periodInMinutes: 0.5 });
+    console.log("ai-pomodoro: tick alarm registered");
+}
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === TICK_ALARM_NAME) {
+        tick();
+    }
+});
+
+// Register on installation, on browser startup, and on every script load (idempotent).
+chrome.runtime.onInstalled.addListener(() => {
+    registerTickAlarm();
+});
+
+chrome.runtime.onStartup.addListener(() => {
+    registerTickAlarm();
+});
+
+// Also call once on script load. Harmless if alarm already exists.
+registerTickAlarm();
 
 // ---- Message handler ----
 

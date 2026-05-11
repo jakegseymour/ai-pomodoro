@@ -1,11 +1,12 @@
 {
     "manifest_version": 3,
     "name": "AI Pomodoro",
-    "version": "0.2.1",
+    "version": "0.2.2",
     "description": "Forced AI-free intervals to build the muscle of thinking without guardrails.",
     "permissions": [
         "storage",
         "webNavigation",
+        "alarms",
         "tabs"
     ],
     "host_permissions": [
