@@ -93,12 +93,12 @@ submitBtn.addEventListener("click", async () => {
     if (response && response.ok) {
         // Compute how long the override actually lasts (might be less than 2min if block ends sooner)
         const remainingMs = Math.max(0, response.expiresAt - Date.now());
-        const minutes = Math.floor(remainingMs / 60000);
-        const seconds = Math.floor((remainingMs % 60000) / 1000);
+        const minutes = Math.ceil(remainingMs / 60000);
+        const seconds = Math.ceil((remainingMs % 60000) / 1000);
         const durationLabel =
             minutes > 0
                 ? `${minutes} minute${minutes !== 1 ? "s" : ""}`
-                : `${seconds} seconds`;
+                : `${Math.max(1, seconds)} seconds`;
         feedbackEl.textContent = `Override granted. You have ${durationLabel}. Loading the site…`;
         feedbackEl.className = "feedback success";
         setTimeout(() => {

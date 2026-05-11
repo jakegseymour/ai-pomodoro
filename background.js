@@ -102,6 +102,8 @@ async function reset() {
     await setState({
         ...DEFAULT_STATE,
         blocklist: state.blocklist,
+        workMinutes: state.workMinutes,
+        openMinutes: state.openMinutes,
     });
     console.log("ai-pomodoro: reset");
     await clearBlockPages();

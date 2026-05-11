@@ -7,6 +7,8 @@ const pauseBtn = document.getElementById("pause");
 const resumeBtn = document.getElementById("resume");
 const resetBtn = document.getElementById("reset");
 const overridesEl = document.getElementById("overrides");
+const workInput = document.getElementById("work-input");
+const openInput = document.getElementById("open-input");
 
 let renderInterval = null;
 
@@ -52,8 +54,13 @@ function render(state) {
     // Active overrides
     renderOverrides(state.overrides || []);
 
-    // Button availability based on state
+    // Disable inputs when not idle. Values are seeded once on popup open
+    // (see one-time init at bottom of file), then owned by the user until Start.
     const isIdle = state.mode === "idle";
+    workInput.disabled = !isIdle;
+    openInput.disabled = !isIdle;
+
+    // Button availability based on state
     startBtn.disabled = !isIdle;
     pauseBtn.disabled = isIdle || !state.running;
     resumeBtn.disabled = isIdle || state.running;
@@ -103,8 +110,31 @@ async function refresh() {
 // ---- Button handlers ----
 
 startBtn.addEventListener("click", async () => {
-    await send({ type: "startSession", workMinutes: 15, openMinutes: 15 });
+    // Validate inputs
+    const workMinutes = parseInt(workInput.value, 10);
+    const openMinutes = parseInt(openInput.value, 10);
+
+    const workValid = Number.isInteger(workMinutes) && workMinutes >= 1 && workMinutes <= 60;
+    const openValid = Number.isInteger(openMinutes) && openMinutes >= 1 && openMinutes <= 60;
+
+    // Visual feedback for invalid inputs
+    workInput.classList.toggle("duration-input-error", !workValid);
+    openInput.classList.toggle("duration-input-error", !openValid);
+
+    if (!workValid || !openValid) {
+        // Don't send; let the user fix the inputs
+        return;
+    }
+
+    await send({ type: "startSession", workMinutes, openMinutes });
     await refresh();
+});
+
+workInput.addEventListener("input", () => {
+    workInput.classList.remove("duration-input-error");
+});
+openInput.addEventListener("input", () => {
+    openInput.classList.remove("duration-input-error");
 });
 
 pauseBtn.addEventListener("click", async () => {
@@ -131,3 +161,13 @@ renderInterval = setInterval(refresh, 1000);
 window.addEventListener("unload", () => {
     if (renderInterval) clearInterval(renderInterval);
 });
+
+// One-time: seed input values from state when the popup opens.
+// After this, the inputs belong to the user until Start is clicked.
+(async () => {
+    const response = await send({ type: "getState" });
+    if (response && response.ok) {
+        workInput.value = response.state.workMinutes ?? 15;
+        openInput.value = response.state.openMinutes ?? 15;
+    }
+})();
