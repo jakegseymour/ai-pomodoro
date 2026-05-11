@@ -523,7 +523,7 @@ async function maybeShowStartupPrompt() {
 
     chrome.notifications.create(STARTUP_PROMPT_NOTIFICATION_ID, {
         type: "basic",
-        iconUrl: chrome.runtime.getURL("icon.png"),
+        iconUrl: chrome.runtime.getURL("icons/icon-128.png"),
         title: "Start a focus session?",
         message: `Work ${state.workMinutes} min / open ${state.openMinutes} min, repeating.`,
         buttons: [
