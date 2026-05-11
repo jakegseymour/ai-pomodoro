@@ -139,13 +139,30 @@ function isHostBlocked(host, blocklist) {
 // Returns true if `host` currently has a non-expired override.
 function hasActiveOverride(host, overrides, now) {
     return overrides.some((o) => {
-        // Paused overrides are not expired; they're frozen.
-        if (o.pausedRemainingMs != null) {
-            return host === o.host || host.endsWith("." + o.host);
-        }
-        if (o.expiresAt <= now) return false;
-        return host === o.host || host.endsWith("." + o.host);
+        if (!isStillValid(o, now)) return false;
+        return hostsMatch(host, o.host);
     });
+}
+
+// Two hosts match if they are equal, or one is a subdomain of the other.
+function hostsMatch(a, b) {
+    if (a === b) return true;
+    if (a.endsWith("." + b)) return true; // a is a subdomain of b
+    if (b.endsWith("." + a)) return true; // b is a subdomain of a
+    return false;
+}
+
+// Of two related hosts, return the more general (shorter) one.
+// Assumes hostsMatch(a, b) is true.
+function moreGeneralHost(a, b) {
+    if (a === b) return a;
+    // If a is a subdomain of b, b is more general. Vice versa.
+    return a.length < b.length ? a : b;
+}
+
+function isStillValid(override, now) {
+    if (override.pausedRemainingMs != null) return true; // paused, frozen
+    return override.expiresAt > now;
 }
 
 // Drops expired overrides from the list.
@@ -195,6 +212,28 @@ async function blockOpenTabs(state) {
         );
         chrome.tabs.update(tab.id, { url: blockedUrl });
         console.log("ai-pomodoro: blocked open tab", host);
+    }
+}
+
+// Release any block-page tabs whose original URL is for a host related to
+// `overrideHost`. Used after granting an override to free related open tabs.
+async function releaseRelatedBlockPages(overrideHost) {
+    const blockPagePrefix = chrome.runtime.getURL("blocked.html");
+    const tabs = await chrome.tabs.query({});
+    for (const tab of tabs) {
+        if (!tab.url || tab.id == null) continue;
+        if (!tab.url.startsWith(blockPagePrefix)) continue;
+        try {
+            const params = new URL(tab.url).searchParams;
+            const original = params.get("url");
+            if (!original) continue;
+            const originalHost = new URL(original).host;
+            if (!hostsMatch(originalHost, overrideHost)) continue;
+            chrome.tabs.update(tab.id, { url: original });
+            console.log("ai-pomodoro: released related block page for", originalHost);
+        } catch {
+            // ignore
+        }
     }
 }
 
@@ -290,16 +329,32 @@ async function requestOverride(host) {
         return { ok: false, error: "Not in a work block" };
     }
     const now = Date.now();
-    // Override expires at min(now + 2min, end of current block)
     const expiresAt = Math.min(now + OVERRIDE_MAX_MS, state.endsAt);
-    // Remove any prior override for this host, then add the new one
-    const filtered = state.overrides.filter((o) => o.host !== host);
-    filtered.push({ host, expiresAt });
-    state.overrides = filtered;
+
+    // Find any existing override on a related host (subdomain in either direction).
+    // Collapse all related entries into one canonical entry using the more general host.
+    let canonicalHost = host;
+    const unrelatedOverrides = [];
+    for (const o of state.overrides) {
+        if (hostsMatch(o.host, host)) {
+            canonicalHost = moreGeneralHost(canonicalHost, o.host);
+        } else {
+            unrelatedOverrides.push(o);
+        }
+    }
+
+    unrelatedOverrides.push({ host: canonicalHost, expiresAt });
+    state.overrides = unrelatedOverrides;
     await setState(state);
-    console.log("ai-pomodoro: override granted", { host, expiresAt });
+    console.log("ai-pomodoro: override granted", { host: canonicalHost, expiresAt });
+
+    // Release any block-page tabs whose original URL is for a related host.
+    await releaseRelatedBlockPages(canonicalHost);
+
     return { ok: true, expiresAt };
 }
+
+
 
 // ---- Tick: advance mode if block ended; prune expired overrides ----
 
