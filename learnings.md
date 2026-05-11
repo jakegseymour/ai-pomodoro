@@ -23,3 +23,26 @@ All three session 7 bugs were caught by Jake testing the running extension — t
 
 **Commit hygiene: one logical change per commit.**
 Bundled commits ("fix and docs and small refactor") collapse the history into mush. `git revert` becomes harder, `git bisect` becomes ambiguous, code review becomes noisy. Discipline: separate code commits from docs commits, separate unrelated fixes from each other, even when the temptation to bundle is strong. The cost is one extra `git commit` invocation; the benefit is a readable history six months later.
+
+## Session 8-9 — Symmetry, prompts, and bounded sessions
+
+**Subdomain matching is bidirectional in user intent.**
+The initial `hasActiveOverride` only matched `host.endsWith("." + override.host)` — subdomain inside override. But real-world hosts like `www.claude.ai` and `claude.ai` are "the same site" in user intent. Fix: check both directions, plus equality. Now `hostsMatch(a, b)` is symmetric.
+
+**Polymorphic override state requires merging-on-write to stay clean.**
+After bidirectional matching, you could have two overrides covering each other (one for `www.claude.ai`, one for `claude.ai`) — functionally redundant, visually confusing. Fix: on every `requestOverride`, collapse related entries into one canonical entry using the more general (shorter) host. Pattern: filter related, narrow `canonicalHost` across iterations, append single entry.
+
+**Related tabs need releasing on override, not just navigations.**
+The webNavigation interceptor handles future navigations. But existing tabs sitting on block pages for related hosts don't auto-clear when you override. Fix: `releaseRelatedBlockPages(host)` scans block-page tabs, parses original URL, releases any whose host is related.
+
+**`chrome.runtime.onStartup` only fires on cold Chrome start.**
+Not on extension reload, not on service worker wake. Testing the natural flow requires actually quitting Chrome and reopening. For development, expose the function in dev-tools console for direct invocation.
+
+**Notifications fail silently if macOS permissions aren't granted.**
+`chrome.notifications.create` returns successfully and logs no error, but nothing appears on screen. First debugging step for "notification not showing": System Settings → Notifications → Google Chrome.
+
+**Recency gating prevents notification fatigue.**
+Cold-start notifications fire on every Chrome restart. That's 5-10x per day on a normal Mac. To stay useful and not become spam, gate on a minimum interval (`lastPromptedAt` field in state, 5-hour minimum). Trade-off: miss prompts if you actually need them; benefit: tool stays welcome long-term.
+
+**Bounded sessions are a different state machine than infinite cycling.**
+Adding `rounds` and `currentRound` to state chan
