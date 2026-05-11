@@ -77,10 +77,19 @@ async function startSession(workMinutes, openMinutes) {
 async function pause() {
     const state = await getState();
     if (!state.running || state.mode === "idle") return;
-    const remainingMs = Math.max(0, state.endsAt - Date.now());
+    const now = Date.now();
+    const remainingMs = Math.max(0, state.endsAt - now);
     state.running = false;
     state.pausedRemainingMs = remainingMs;
     state.endsAt = null;
+    // Freeze active overrides into a paused form so they don't expire on wall clock.
+    state.overrides = state.overrides.map((o) => {
+        if (o.expiresAt != null) {
+            const overrideRemaining = Math.max(0, o.expiresAt - now);
+            return { host: o.host, pausedRemainingMs: overrideRemaining };
+        }
+        return o;
+    });
     await setState(state);
     console.log("ai-pomodoro: paused", state);
     await clearBlockPages();
@@ -89,9 +98,17 @@ async function pause() {
 async function resume() {
     const state = await getState();
     if (state.running || state.mode === "idle" || state.pausedRemainingMs == null) return;
+    const now = Date.now();
     state.running = true;
-    state.endsAt = Date.now() + state.pausedRemainingMs;
+    state.endsAt = now + state.pausedRemainingMs;
     state.pausedRemainingMs = null;
+    // Unfreeze paused overrides into active form.
+    state.overrides = state.overrides.map((o) => {
+        if (o.pausedRemainingMs != null) {
+            return { host: o.host, expiresAt: now + o.pausedRemainingMs };
+        }
+        return o;
+    });
     await setState(state);
     console.log("ai-pomodoro: resumed", state);
     await blockOpenTabs(state);
@@ -122,15 +139,21 @@ function isHostBlocked(host, blocklist) {
 // Returns true if `host` currently has a non-expired override.
 function hasActiveOverride(host, overrides, now) {
     return overrides.some((o) => {
+        // Paused overrides are not expired; they're frozen.
+        if (o.pausedRemainingMs != null) {
+            return host === o.host || host.endsWith("." + o.host);
+        }
         if (o.expiresAt <= now) return false;
-        // Match exact host OR subdomain of overridden host.
         return host === o.host || host.endsWith("." + o.host);
     });
 }
 
 // Drops expired overrides from the list.
 function pruneOverrides(overrides, now) {
-    return overrides.filter((o) => o.expiresAt > now);
+    return overrides.filter((o) => {
+        if (o.pausedRemainingMs != null) return true;
+        return o.expiresAt > now;
+    });
 }
 
 // ---- Badge helpers ----
@@ -230,20 +253,31 @@ async function updateBadge(state, now) {
     let text = "";
     let color = "#888888";
 
-    // Find the soonest-expiring active override
-    const activeOverrides = state.overrides.filter((o) => o.expiresAt > now);
+    // Paused state takes precedence — show PAUS regardless of overrides.
+    if (state.mode !== "idle" && !state.running) {
+        text = "PAUS";
+        color = "#888888";
+        await chrome.action.setBadgeText({ text });
+        await chrome.action.setBadgeBackgroundColor({ color });
+        return;
+    }
+
+    // Find the soonest-expiring ACTIVE (non-paused) override
+    const activeOverrides = state.overrides.filter(
+        (o) => o.expiresAt != null && o.expiresAt > now
+    );
     if (activeOverrides.length > 0) {
         const soonest = activeOverrides.reduce((min, o) =>
             o.expiresAt < min.expiresAt ? o : min
         );
         text = formatBadge(soonest.expiresAt - now);
-        color = "#b85c38"; // rust — matches the "warning" tone
+        color = "#b85c38";
     } else if (state.mode === "work" && state.running && state.endsAt) {
         text = formatBadge(state.endsAt - now);
-        color = "#b85c38"; // rust for work mode
+        color = "#b85c38";
     } else if (state.mode === "open" && state.running && state.endsAt) {
         text = formatBadge(state.endsAt - now);
-        color = "#2d5f3f"; // forest green for open mode
+        color = "#2d5f3f";
     }
 
     await chrome.action.setBadgeText({ text });
@@ -275,7 +309,8 @@ async function tick() {
     let changed = false;
 
     // Find overrides that JUST expired (so we can redirect their tabs)
-    const previouslyActive = state.overrides.filter((o) => o.expiresAt > 0);
+    // Only active (non-paused) overrides can expire.
+    const previouslyActive = state.overrides.filter((o) => o.expiresAt != null);
     const stillActive = pruneOverrides(state.overrides, now);
     const expiredHosts = previouslyActive
         .filter((o) => !stillActive.some((s) => s.host === o.host))

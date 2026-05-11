@@ -69,20 +69,31 @@ function render(state) {
 
 function renderOverrides(overrides) {
     const now = Date.now();
-    const active = overrides.filter((o) => o.expiresAt > now);
-    if (active.length === 0) {
+    const visible = overrides.filter((o) => {
+        if (o.pausedRemainingMs != null) return true;
+        return o.expiresAt > now;
+    });
+    if (visible.length === 0) {
         overridesEl.innerHTML = "";
         return;
     }
-    // Sort by soonest-expiring first
-    active.sort((a, b) => a.expiresAt - b.expiresAt);
-    overridesEl.innerHTML = active
+    // Sort: active by soonest expiring first, then paused at end
+    visible.sort((a, b) => {
+        const aPaused = a.pausedRemainingMs != null;
+        const bPaused = b.pausedRemainingMs != null;
+        if (aPaused && !bPaused) return 1;
+        if (!aPaused && bPaused) return -1;
+        if (aPaused && bPaused) return 0;
+        return a.expiresAt - b.expiresAt;
+    });
+    overridesEl.innerHTML = visible
         .map((o) => {
-            const remaining = formatTime(o.expiresAt - now);
+            const isPaused = o.pausedRemainingMs != null;
+            const label = isPaused ? "PAUSED" : formatTime(o.expiresAt - now);
             return `
         <div class="override-row">
           <span class="override-host">${escapeHtml(o.host)}</span>
-          <span class="override-time">${remaining}</span>
+          <span class="override-time">${label}</span>
         </div>
       `;
         })
