@@ -73,3 +73,7 @@ Tracked fixes and features across versions. Newest at the top.
 - ~~Default sites (claude.ai, chatgpt.com, gemini.google.com, www.perplexity.ai, copilot.microsoft.com) need to be removable or not?~~ Decided: immutable. Locked icon (🔒) in the UI, no Remove button. Defaults are baked into manifest's `host_permissions` and pre-populated in default state.
 - Manifest declares `optional_host_permissions: ["*://*/*"]` so users can grant access to arbitrary sites at runtime. Each new site triggers Chrome's native permission prompt.
 - `options_page` field in manifest registers the page with Chrome (shows up in right-click extension menu, `chrome://extensions` Details panel).
+
+## v0.4.2 — Paste-blocking on override input
+
+- ~~Override sentence could be copy-pasted, defeating the typed-sentence friction entirely.~~ Done. Block page's override textarea now blocks `paste`, `drop`, `contextmenu`, and `Cmd+V`/`Ctrl+V`/`Shift+Insert` keyboard shortcuts. Feedback message ("Type the sentence; don't paste.") fires on every blocked attempt. Right-click context menu suppressed entirely on the input — minor side effect: spellcheck and Copy also disabled, acceptable for a single-purpose field.
