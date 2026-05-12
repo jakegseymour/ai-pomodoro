@@ -1,6 +1,6 @@
 // popup.js — runs when the popup is open
 
-const modeEl = document.getElementById("mode");
+const stateLineEl = document.getElementById("state-line");
 const timeEl = document.getElementById("time");
 const startBtn = document.getElementById("start");
 const clearBtn = document.getElementById("clear");
@@ -12,7 +12,9 @@ const workInput = document.getElementById("work-input");
 const openInput = document.getElementById("open-input");
 const roundsInput = document.getElementById("rounds-input");
 const roundProgressEl = document.getElementById("round-progress");
-const openOptionsLink = document.getElementById("open-options");
+const openOptionsBtn = document.getElementById("open-options");
+const durationsEl = document.getElementById("durations");
+const sectionDividerEl = document.getElementById("section-divider");
 
 let renderInterval = null;
 
@@ -36,59 +38,92 @@ function formatTime(ms) {
     return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
+// ---- SVG icon strings for the state line ----
+// Same lock shapes as on the input labels, scaled up.
+
+const LOCK_CLOSED_SVG = `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="11" width="18" height="11" rx="2"></rect>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+    </svg>`;
+
+const LOCK_OPEN_SVG = `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="11" width="18" height="11" rx="2"></rect>
+        <path d="M7 11V7a5 5 0 0 1 9.9-1"></path>
+    </svg>`;
+
 // ---- Render the current state into the DOM ----
 
 function render(state) {
-    // Mode label and color. isPaused here covers BOTH manual and override pause
-    // because the label should show "(PAUSED)" for either.
-    const isPaused = (state.overridePausedRemainingMs != null || state.pausedRemainingMs != null) && state.mode !== "idle";
-    if (isPaused) {
-        modeEl.innerHTML = `${state.mode}<span class="mode-suffix"> (PAUSED)</span>`;
-    } else {
-        modeEl.textContent = state.mode;
-    }
-    modeEl.className = "mode " + state.mode;
-
-    // Time remaining
-    if (state.mode === "idle") {
-        timeEl.textContent = "--:--";
-        timeEl.classList.remove("time-frozen");
-    } else if (state.running && state.endsAt != null) {
-        const remaining = state.endsAt - Date.now();
-        timeEl.textContent = formatTime(remaining);
-        timeEl.classList.remove("time-frozen");
-    } else if (state.overridePausedRemainingMs != null) {
-        // Timer is auto-paused while overrides are active.
-        timeEl.textContent = formatTime(state.overridePausedRemainingMs);
-    } else if (state.pausedRemainingMs != null) {
-        // Manually paused.
-        timeEl.textContent = formatTime(state.pausedRemainingMs);
-    } else {
-        timeEl.textContent = "--:--";
-        timeEl.classList.remove("time-frozen");
-    }
-
-    // Active overrides
-    renderOverrides(state.overrides || []);
-
-    // Disable inputs when not idle. Values are seeded once on popup open
-    // (see one-time init at bottom of file), then owned by the user until Start.
     const isIdle = state.mode === "idle";
-    workInput.disabled = !isIdle;
-    openInput.disabled = !isIdle;
-    roundsInput.disabled = !isIdle;
+    const isManuallyPaused = state.pausedRemainingMs != null;
+    const isOverridePaused = state.overridePausedRemainingMs != null;
 
-    // Round progress
-    if (state.mode !== "idle" && state.currentRound > 0 && state.rounds > 0) {
+    // ---- State line: icon + label, only when running ----
+    // Hidden when idle (no state to show).
+    // Color via class: work → rust, open → green, manual pause → gray.
+
+    if (isIdle) {
+        stateLineEl.style.display = "none";
+        stateLineEl.innerHTML = "";
+        stateLineEl.className = "state-line";
+    } else {
+        stateLineEl.style.display = "";
+        const icon = state.mode === "work" ? LOCK_CLOSED_SVG : LOCK_OPEN_SVG;
+        const label = state.mode === "work" ? "Solo" : "Assist";
+        const suffix = isManuallyPaused ? `<span class="state-suffix">(paused)</span>` : "";
+        stateLineEl.innerHTML = `${icon}<span>${label}</span>${suffix}`;
+        // Class controls color. Manual pause overrides mode color to gray.
+        stateLineEl.className =
+            "state-line " + (isManuallyPaused ? "paused" : state.mode);
+    }
+
+    // ---- Time remaining ----
+    // Idle: "--:--". Running: countdown from endsAt. Paused (either kind):
+    // the frozen remaining value.
+
+    if (isIdle) {
+        timeEl.style.display = "none";
+        timeEl.textContent = "";
+    } else {
+        timeEl.style.display = "";
+        if (state.running && state.endsAt != null) {
+            timeEl.textContent = formatTime(state.endsAt - Date.now());
+        } else if (isOverridePaused) {
+            timeEl.textContent = formatTime(state.overridePausedRemainingMs);
+        } else if (isManuallyPaused) {
+            timeEl.textContent = formatTime(state.pausedRemainingMs);
+        } else {
+            timeEl.textContent = "--:--";
+        }
+    }
+    // Time desaturates on manual pause only — override pause keeps full color
+    // because the underlying state (in work block) is still active.
+    timeEl.classList.toggle("paused", isManuallyPaused);
+
+    // ---- Round progress ----
+
+    if (!isIdle && state.currentRound > 0 && state.rounds > 0) {
         roundProgressEl.textContent = `Round ${state.currentRound} of ${state.rounds}`;
     } else {
         roundProgressEl.textContent = "";
     }
 
-    // Button visibility based on state. isManuallyPaused governs Pause/Resume
-    // visibility specifically — override-pause is automatic and shouldn't
-    // surface a Resume button, since the user can't manually resume from it.
-    const isManuallyPaused = state.pausedRemainingMs != null;
+    // ---- Active overrides ----
+
+    renderOverrides(state.overrides || []);
+
+    // ---- Inputs section: only visible when idle ----
+    // When running, the user can't change config, so the inputs disappear
+    // entirely (cleaner than disabled grayed-out boxes).
+
+    durationsEl.style.display = isIdle ? "" : "none";
+    sectionDividerEl.style.display = isIdle ? "" : "none";
+
+    // ---- Button visibility ----
+    // isManuallyPaused governs Pause/Resume — override-pause doesn't surface
+    // a Resume button (the user can't manually resume from an override).
 
     startBtn.style.display = isIdle ? "" : "none";
     clearBtn.style.display = isIdle ? "" : "none";
@@ -107,7 +142,7 @@ function renderOverrides(overrides) {
         overridesEl.innerHTML = "";
         return;
     }
-    // Sort: active by soonest expiring first, then paused at end
+    // Sort: active by soonest expiring first, then paused at end.
     visible.sort((a, b) => {
         const aPaused = a.pausedRemainingMs != null;
         const bPaused = b.pausedRemainingMs != null;
@@ -159,9 +194,9 @@ startBtn.addEventListener("click", async () => {
     const openValid = Number.isInteger(openMinutes) && openMinutes >= 1 && openMinutes <= 60;
     const roundsValid = Number.isInteger(rounds) && rounds >= 1 && rounds <= 20;
 
-    workInput.classList.toggle("duration-input-error", !workValid);
-    openInput.classList.toggle("duration-input-error", !openValid);
-    roundsInput.classList.toggle("duration-input-error", !roundsValid);
+    workInput.closest(".duration-input-row").classList.toggle("duration-input-error", !workValid);
+    openInput.closest(".duration-input-row").classList.toggle("duration-input-error", !openValid);
+    roundsInput.closest(".duration-input-row").classList.toggle("duration-input-error", !roundsValid);
 
     if (!workValid || !openValid || !roundsValid) return;
 
@@ -170,23 +205,23 @@ startBtn.addEventListener("click", async () => {
 });
 
 roundsInput.addEventListener("input", () => {
-    roundsInput.classList.remove("duration-input-error");
+    roundsInput.closest(".duration-input-row").classList.remove("duration-input-error");
 });
 
 workInput.addEventListener("input", () => {
-    workInput.classList.remove("duration-input-error");
+    workInput.closest(".duration-input-row").classList.remove("duration-input-error");
 });
 openInput.addEventListener("input", () => {
-    openInput.classList.remove("duration-input-error");
+    openInput.closest(".duration-input-row").classList.remove("duration-input-error");
 });
 
 clearBtn.addEventListener("click", () => {
     workInput.value = "";
     openInput.value = "";
     roundsInput.value = "";
-    workInput.classList.remove("duration-input-error");
-    openInput.classList.remove("duration-input-error");
-    roundsInput.classList.remove("duration-input-error");
+    workInput.closest(".duration-input-row").classList.remove("duration-input-error");
+    openInput.closest(".duration-input-row").classList.remove("duration-input-error");
+    roundsInput.closest(".duration-input-row").classList.remove("duration-input-error");
 });
 
 pauseBtn.addEventListener("click", () => {
@@ -204,7 +239,7 @@ endBtn.addEventListener("click", () => {
     window.close();
 });
 
-openOptionsLink.addEventListener("click", (e) => {
+openOptionsBtn.addEventListener("click", (e) => {
     e.preventDefault();
     chrome.runtime.openOptionsPage();
 });
@@ -214,13 +249,11 @@ openOptionsLink.addEventListener("click", (e) => {
 refresh();
 renderInterval = setInterval(refresh, 1000);
 
-// Clean up the interval when the popup closes
 window.addEventListener("unload", () => {
     if (renderInterval) clearInterval(renderInterval);
 });
 
 // One-time: seed input values from state when the popup opens.
-// After this, the inputs belong to the user until Start is clicked.
 
 (async () => {
     const response = await send({ type: "getState" });
