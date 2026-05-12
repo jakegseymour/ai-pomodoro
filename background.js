@@ -208,8 +208,8 @@ function formatBadge(ms) {
     const totalSeconds = Math.ceil(ms / 1000);
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
-    // Chrome badges fit ~4 chars. Use "M:SS" under 10 min, otherwise just minutes.
-    if (minutes >= 10) return String(minutes);
+    // Chrome badges fit ~4 chars. Under 10 min show "M:SS"; otherwise "NNm".
+    if (minutes >= 10) return `${minutes}m`;
     return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
@@ -319,9 +319,9 @@ async function updateBadge(state, now) {
     let text = "";
     let color = "#888888";
 
-    // Paused state takes precedence — show PAUS regardless of overrides.
+    // Paused state takes precedence — show pause symbol regardless of overrides.
     if (state.mode !== "idle" && !state.running) {
-        text = "PAUS";
+        text = "||";
         color = "#888888";
         await chrome.action.setBadgeText({ text });
         await chrome.action.setBadgeBackgroundColor({ color });
@@ -671,7 +671,7 @@ const SESSION_COMPLETE_NOTIFICATION_ID = "ai-pomodoro-session-complete";
 async function fireSessionCompleteNotification(roundsCompleted) {
     chrome.notifications.create(SESSION_COMPLETE_NOTIFICATION_ID, {
         type: "basic",
-        iconUrl: chrome.runtime.getURL("icon.png"),
+        iconUrl: chrome.runtime.getURL("icons/icon-128.png"),
         title: "Session complete",
         message: `${roundsCompleted} round${roundsCompleted !== 1 ? "s" : ""} done. AI sites unblocked.`,
     });

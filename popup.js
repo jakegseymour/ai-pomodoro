@@ -181,9 +181,9 @@ openInput.addEventListener("input", () => {
 });
 
 clearBtn.addEventListener("click", () => {
-    workInput.value = "--";
-    openInput.value = "--";
-    roundsInput.value = "--";
+    workInput.value = "";
+    openInput.value = "";
+    roundsInput.value = "";
     workInput.classList.remove("duration-input-error");
     openInput.classList.remove("duration-input-error");
     roundsInput.classList.remove("duration-input-error");

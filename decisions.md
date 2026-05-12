@@ -131,3 +131,5 @@ Two-file dependency flagged in code comments. User-defined blocklist editing def
 
 **State migration handled via backfills in `getState`, not formal migrations.**
 When new fields appear in `DEFAULT_STATE`, `getState` checks for missing fields and fills them with defaults. Acceptable while schema is small and changes are additive. Real migration framework is overkill for v1.
+
+Pause badge / lock icon: keep as emoji. Considered SVG and ASCII alternatives (||, inline SVG lock). Picked emoji for simplicity. Re-evaluate if v1.0 review feedback says the popup or options page looks "AI-generated" or unpolished.
