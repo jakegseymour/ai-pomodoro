@@ -14,7 +14,6 @@ const roundsInput = document.getElementById("rounds-input");
 const roundProgressEl = document.getElementById("round-progress");
 const openOptionsBtn = document.getElementById("open-options");
 const durationsEl = document.getElementById("durations");
-const bottomDividerEl = document.getElementById("bottom-divider");
 
 let renderInterval = null;
 
@@ -112,7 +111,6 @@ function render(state) {
     // Bottom divider only shows when inputs do.
 
     durationsEl.style.display = isIdle ? "" : "none";
-    bottomDividerEl.style.display = isIdle ? "" : "none";
 
     // ---- Button visibility ----
 
