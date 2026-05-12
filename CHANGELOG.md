@@ -41,13 +41,12 @@ Tracked fixes and features across versions. Newest at the top.
 
 ### Required before Chrome Web Store publish
 
-- **Settings UI for blocklist editing.** Currently hardcoded in `background.js` + `manifest.json` host_permissions. Required for store; users can't customize what's blocked.
-- **Override sentence customization.** Currently hardcoded; original spec called for user-editable.
-- **Privacy policy hosted publicly.** Required for store with current permission set.
+- **Override sentence customization.** Deferred from v0.4.0 — out of scope for the settings UI session. May not be needed for v1.0.
+- **Block paste in override textbox.** Currently copy-paste-able, which defeats the friction. Final step before submission to keep testing fast.
+- **Privacy policy hosted publicly.** Required for store with current permission set. GitHub Pages is the easy host.
 - **Chrome Web Store developer account.** $5 one-time.
-- **Store listing assets.** Screenshots, description, permission justifications.
-- **README.md.** Repo has none.
-- **Icon at 16, 32, 48 sizes.** Have 128; Chrome scales but looks fuzzy.
+- **Store listing assets.** Screenshots (likely popup mid-session, block page, options page), description, promotional tile, permission justifications.
+- **Final pause decision.** Currently kept; semantics documented in code. May remove before v1.0 if it stays unused in practice.
 
 ### Quality of life
 
@@ -62,3 +61,15 @@ Tracked fixes and features across versions. Newest at the top.
 - Session history / override log for self-reflection.
 - Per-day stats / streaks.
 - Hosting privacy policy on jakeseymourg.com once the domain is live.
+
+## v0.4.1 — Discoverability of settings page
+
+- ~~Options page invisible to users who don't right-click the icon or know about chrome://extensions.~~ Done. "Modify blocked sites" link added to popup footer, opens options page in a new tab via `chrome.runtime.openOptionsPage()`. Small low-priority styling so it doesn't compete with the main controls.
+
+## v0.4.0 — Settings UI for blocklist
+
+- ~~Blocklist hardcoded; users couldn't add their own AI sites.~~ Done. New options page (`options.html` + `options.js`) with a form to view, add, and remove blocked hosts. Add input is permissive — accepts hostnames, full URLs, paths, mixed case — and normalizes to lowercased hostname before storing.
+- ~~`chrome.permissions.request()` failed with "must be called during a user gesture" when called from the background script.~~ Done. Permission requests now happen in `options.js` directly inside the Add button's click handler, where the user gesture is still in scope. Background script only handles state mutation. Same logic, different ownership — permission flow lives in the UI layer, state flow lives in the background.
+- ~~Default sites (claude.ai, chatgpt.com, gemini.google.com, www.perplexity.ai, copilot.microsoft.com) need to be removable or not?~~ Decided: immutable. Locked icon (🔒) in the UI, no Remove button. Defaults are baked into manifest's `host_permissions` and pre-populated in default state.
+- Manifest declares `optional_host_permissions: ["*://*/*"]` so users can grant access to arbitrary sites at runtime. Each new site triggers Chrome's native permission prompt.
+- `options_page` field in manifest registers the page with Chrome (shows up in right-click extension menu, `chrome://extensions` Details panel).
