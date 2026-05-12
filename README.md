@@ -1,20 +1,20 @@
 # AI Pomodoro
 
-A Chrome extension that enforces AI-free intervals during focused work — so you build the muscle of thinking through hard problems on your own, without reaching for Claude or ChatGPT the moment you get stuck.
+A Chrome extension that time-blocks chatbots so your first thinking is actually yours.
 
 ## What it does
 
-You set how many minutes you want to spend blocked from AI sites, how many minutes you want to be free, and how many rounds of this cycle to do. The extension blocks the major AI chat tools during your focus blocks and unblocks them during your open blocks. After the configured rounds complete, the session ends and everything is unblocked.
+You set how long your solo-thinking blocks should be, how long your AI-assist blocks should be, and how many rounds. During solo-thinking blocks, the extension blocks the major chatbots. During AI-assist blocks, everything's open and you can use the chatbots to refine what you started. After the configured rounds complete, the session ends.
 
-If you genuinely need to break a block — to look up syntax, copy a snippet, or admit you're stuck — you can override per-site by typing a sentence verbatim. The override lasts 2 minutes, or until the focus block ends, whichever comes first. It's deliberately enough friction to make the override a real decision, not a reflex.
+If you genuinely need to break a solo-thinking block — to look up syntax, copy a snippet, or admit you're stuck — you can override per-site by typing a sentence verbatim. The override lasts 2 minutes, or until the block ends, whichever comes first. It's deliberately enough friction to make the override a real decision, not a reflex.
 
-By default, the extension blocks claude.ai, chatgpt.com, gemini.google.com, perplexity.ai, and copilot.microsoft.com. (Settings UI to customize this list is in development.)
+By default, the extension blocks claude.ai, chatgpt.com, gemini.google.com, perplexity.ai, and copilot.microsoft.com. You can add or remove sites from the settings page.
 
 ## Why I built it
 
-[edit — this paragraph should be in your voice, not mine. Suggested:]
+Chatbots are excellent at refining ideas you've already had and bad at originating them. The more you reach for AI before forming your own take, the more your thinking starts to sound like everyone else's — because AI averages, and you can't unsee what you've already read. This extension blocks chatbots during solo-thinking blocks so you start from a blank page, then unblocks them during AI-assist blocks for refining what you started.
 
-AI tools are so good at smoothing over the "stuck" feeling that I never developed the muscle of sitting with a hard problem. The struggle is where the learning happens. If I reach for Claude every time I'm confused, I'm outsourcing the exact cognitive work I need to be doing. This extension forces honest intervals — and a deliberate, sentence-typed bypass when I really need one.
+Solo first, AI after.
 
 ## Install (development build)
 
@@ -30,10 +30,10 @@ Until this is on the Chrome Web Store, install manually:
 ## Use
 
 1. Click the extension icon.
-2. Set Work minutes, Open minutes, and Rounds. Defaults are 15 / 15 / 4.
-3. Click Start.
-4. The toolbar badge shows a live countdown. Mode (WORK / OPEN) and round progress are visible in the popup.
-5. Visiting a blocked site during a work block redirects to a block page. To override, type the displayed sentence exactly.
+2. Set Solo minutes, Assist minutes, and Rounds. Defaults are 15 / 15 / 4.
+3. Click Start session.
+4. The toolbar badge shows a live countdown, rust for solo-thinking and green for AI-assist. The popup shows mode (SOLO / ASSIST), time remaining, and round progress.
+5. Visiting a blocked site during a solo-thinking block redirects to a block page. To override, type the displayed sentence exactly.
 6. After all rounds complete, a "Session complete" notification fires and everything unblocks.
 
 ## Tech stack
@@ -48,8 +48,8 @@ Until this is on the Chrome Web Store, install manually:
 
 Active development. Functional, used daily by the author. Not yet on the Chrome Web Store.
 
-See [CHANGELOG.md](./v0.2.x-todo.md) for what's shipped and what's coming.
+See [CHANGELOG.md](./CHANGELOG.md) for what's shipped and what's coming.
 
 ## License
 
-[edit — pick one. MIT is the default for personal projects you don't mind others using or forking. If unsure, MIT.]
+MIT. See [LICENSE](./LICENSE).

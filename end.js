@@ -1,7 +1,7 @@
 // end.js — runs on the end friction page
 
 const END_SENTENCE =
-    "I am ending my focus block before it finished. I am choosing to stop the work I committed to.";
+    "I am ending my session before it finishes. I am choosing to stop the work I committed to.";
 
 const sessionStateEl = document.getElementById("session-state");
 const sentenceEl = document.getElementById("sentence");
@@ -53,7 +53,7 @@ async function refreshSessionState() {
         remainingMs = 0;
     }
 
-    const modeLabel = state.mode === "work" ? "work block" : "open block";
+    const modeLabel = state.mode === "work" ? "solo-thinking block" : "AI-assist block";
     const timeStr = formatTime(remainingMs);
 
     if (state.currentRound > 0 && state.rounds > 0) {

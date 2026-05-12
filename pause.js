@@ -1,7 +1,7 @@
 // pause.js — runs on the pause friction page
 
 const PAUSE_SENTENCE =
-    "I am pausing my focus block. I will resume it, not abandon it.";
+    "I am pausing my session. I will resume it, not abandon it.";
 
 const timeEl = document.getElementById("time");
 const sentenceEl = document.getElementById("sentence");

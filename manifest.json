@@ -1,8 +1,8 @@
 {
     "manifest_version": 3,
     "name": "AI Pomodoro",
-    "version": "0.5.0",
-    "description": "Forced AI-free intervals to build the muscle of thinking without guardrails.",
+    "version": "0.6.0",
+    "description": "Solo-thinking first, AI after. Time-blocks chatbots so your first thinking is actually yours.",
     "permissions": [
         "storage",
         "webNavigation",

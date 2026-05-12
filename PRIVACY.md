@@ -1,8 +1,8 @@
 # Privacy Policy
 
-**Effective date:** May 11, 2026
+**Effective date:** May 12, 2026
 
-AI Pomodoro is a Chrome extension that enforces AI-free focus intervals during user-defined work sessions. This policy explains what data the extension handles, where that data lives, and what it never does.
+AI Pomodoro is a Chrome extension that time-blocks chatbots during user-defined work sessions. This policy explains what data the extension handles, where that data lives, and what it never does.
 
 ## Summary
 
@@ -12,9 +12,9 @@ AI Pomodoro does not collect, transmit, or share any of your data. All informati
 
 The extension uses `chrome.storage.local` to persist the following on your device only:
 
-- Your session preferences: work duration, open duration, and round count.
-- Your configured blocklist of sites to block during focus blocks.
-- Your override history: timestamps and host names of overrides you have granted during focus blocks.
+- Your session preferences: solo-thinking duration, AI-assist duration, and round count.
+- Your configured blocklist of sites to block during solo-thinking blocks.
+- Your override history: timestamps and host names of overrides you have granted during solo-thinking blocks.
 - Current session state: whether a session is running, the timer's end time, which round you are in, and any active overrides.
 - The timestamp of the last startup notification, used only to determine whether to show the next one.
 
@@ -32,11 +32,11 @@ This data persists on your device until you uninstall the extension or clear Chr
 ## Why each permission is requested
 
 - **storage**: To save your preferences, blocklist, and session state locally on your device.
-- **webNavigation**: To detect when you are navigating to a site on your blocklist during a focus block, so the extension can redirect the tab to its in-extension block page.
-- **tabs**: To redirect open tabs to the block page when a focus session starts, and to release block pages back to their original URLs when a session pauses, resets, or ends.
+- **webNavigation**: To detect when you are navigating to a site on your blocklist during a solo-thinking block, so the extension can redirect the tab to its in-extension block page.
+- **tabs**: To redirect open tabs to the block page when a session starts, and to release block pages back to their original URLs when a session pauses, resets, or ends.
 - **alarms**: To run the timer reliably across the service worker's sleep cycles, as required by Chrome's Manifest V3 architecture.
 - **notifications**: To display the startup prompt asking if you want to begin a session, and the notification that fires when a session completes.
-- **host_permissions** for the default blocklist (claude.ai, chatgpt.com, gemini.google.com, www.perplexity.ai, copilot.microsoft.com): Required to intercept navigation to these sites during focus blocks.
+- **host_permissions** for the default blocklist (claude.ai, chatgpt.com, gemini.google.com, www.perplexity.ai, copilot.microsoft.com): Required to intercept navigation to these sites during solo-thinking blocks.
 - **optional_host_permissions**: When you add a custom site to your blocklist through the extension's settings page, the extension requests permission for that specific site at that moment. You see Chrome's native permission prompt and can deny it. Permissions are only granted for sites you explicitly add.
 
 ## Children

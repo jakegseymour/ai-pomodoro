@@ -632,8 +632,8 @@ async function maybeShowStartupPrompt() {
     chrome.notifications.create(STARTUP_PROMPT_NOTIFICATION_ID, {
         type: "basic",
         iconUrl: chrome.runtime.getURL("icons/icon-128.png"),
-        title: "Start a focus session?",
-        message: `Work ${state.workMinutes} min / open ${state.openMinutes} min, repeating.`,
+        title: "Start a session?",
+        message: `${state.workMinutes} min solo / ${state.openMinutes} min assist, repeating.`,
         buttons: [
             { title: "Yes, start now" },
             { title: "Not now" },
@@ -673,7 +673,7 @@ async function fireSessionCompleteNotification(roundsCompleted) {
         type: "basic",
         iconUrl: chrome.runtime.getURL("icons/icon-128.png"),
         title: "Session complete",
-        message: `${roundsCompleted} round${roundsCompleted !== 1 ? "s" : ""} done. AI sites unblocked.`,
+        message: `${roundsCompleted} round${roundsCompleted !== 1 ? "s" : ""} done.`,
     });
     console.log("ai-pomodoro: session complete notification fired");
 }

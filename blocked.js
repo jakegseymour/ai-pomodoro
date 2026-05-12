@@ -1,7 +1,7 @@
 // blocked.js — runs on the block page
 
 const OVERRIDE_SENTENCE =
-    "I am choosing to break my focus block and use AI right now. My ability to critically think for myself is at risk.";
+    "I am choosing to break my solo-thinking block and use AI right now. My ability to critically think for myself is at risk.";
 
 const hostEl = document.getElementById("host");
 const timeEl = document.getElementById("time");
