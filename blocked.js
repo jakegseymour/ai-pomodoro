@@ -69,6 +69,41 @@ function normalize(s) {
     return s.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+// ---- Block paste / drop / right-click paste in override input ----
+// The friction is in typing the sentence. Pasting defeats it entirely.
+
+function showPasteBlocked() {
+    feedbackEl.textContent = "Type the sentence; don't paste.";
+    feedbackEl.className = "feedback error";
+}
+
+inputEl.addEventListener("paste", (e) => {
+    e.preventDefault();
+    showPasteBlocked();
+});
+
+inputEl.addEventListener("drop", (e) => {
+    e.preventDefault();
+    showPasteBlocked();
+});
+
+inputEl.addEventListener("contextmenu", (e) => {
+    // Disable right-click menu entirely on the input. The most common reason
+    // for right-clicking inside a textarea is to access Paste.
+    e.preventDefault();
+});
+
+inputEl.addEventListener("keydown", (e) => {
+    // Cmd+V on Mac, Ctrl+V on Windows/Linux. Also block Shift+Insert (older paste).
+    const isPasteShortcut =
+        ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "v") ||
+        (e.shiftKey && e.key === "Insert");
+    if (isPasteShortcut) {
+        e.preventDefault();
+        showPasteBlocked();
+    }
+});
+
 submitBtn.addEventListener("click", async () => {
     feedbackEl.textContent = "";
     feedbackEl.className = "feedback";
