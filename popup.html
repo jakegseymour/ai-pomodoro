@@ -32,8 +32,21 @@
             margin-bottom: 18px;
         }
 
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .brand-icon {
+            width: 18px;
+            height: 18px;
+            display: block;
+            image-rendering: -webkit-optimize-contrast;
+        }
+
         h1 {
-            font-size: 11px;
+            font-size: 13px;
             font-weight: 500;
             margin: 0;
             text-transform: uppercase;
@@ -292,7 +305,10 @@
 
 <body>
     <div class="header">
-        <h1>ai-pomodoro</h1>
+        <div class="brand">
+            <img src="icons/icon-48.png" alt="" class="brand-icon">
+            <h1>ai-pomodoro</h1>
+        </div>
         <button id="open-options" class="gear-btn" aria-label="Modify blocked sites" title="Modify blocked sites">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                 stroke-linejoin="round">
@@ -318,7 +334,7 @@
                     <rect x="3" y="11" width="18" height="11" rx="2"></rect>
                     <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
                 </svg>
-                Solo
+                AI · Solo
             </label>
             <div class="duration-input-row">
                 <input type="number" id="work-input" class="duration-input" min="1" max="60" step="1" value="15"
@@ -332,7 +348,7 @@
                     <rect x="3" y="11" width="18" height="11" rx="2"></rect>
                     <path d="M7 11V7a5 5 0 0 1 9.9-1"></path>
                 </svg>
-                Assist
+                AI · Assist
             </label>
             <div class="duration-input-row">
                 <input type="number" id="open-input" class="duration-input" min="1" max="60" step="1" value="15"
