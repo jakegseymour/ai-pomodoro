@@ -11,6 +11,7 @@ const workInput = document.getElementById("work-input");
 const openInput = document.getElementById("open-input");
 const roundsInput = document.getElementById("rounds-input");
 const roundProgressEl = document.getElementById("round-progress");
+const openOptionsLink = document.getElementById("open-options");
 
 let renderInterval = null;
 
@@ -173,6 +174,11 @@ resumeBtn.addEventListener("click", async () => {
 resetBtn.addEventListener("click", async () => {
     await send({ type: "reset" });
     await refresh();
+});
+
+openOptionsLink.addEventListener("click", (e) => {
+    e.preventDefault();
+    chrome.runtime.openOptionsPage();
 });
 
 // ---- On popup open: render once, then re-render every second ----
