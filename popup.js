@@ -14,7 +14,7 @@ const roundsInput = document.getElementById("rounds-input");
 const roundProgressEl = document.getElementById("round-progress");
 const openOptionsBtn = document.getElementById("open-options");
 const durationsEl = document.getElementById("durations");
-const sectionDividerEl = document.getElementById("section-divider");
+const bottomDividerEl = document.getElementById("bottom-divider");
 
 let renderInterval = null;
 
@@ -61,8 +61,6 @@ function render(state) {
     const isOverridePaused = state.overridePausedRemainingMs != null;
 
     // ---- State line: icon + label, only when running ----
-    // Hidden when idle (no state to show).
-    // Color via class: work → rust, open → green, manual pause → gray.
 
     if (isIdle) {
         stateLineEl.style.display = "none";
@@ -74,14 +72,11 @@ function render(state) {
         const label = state.mode === "work" ? "Solo" : "Assist";
         const suffix = isManuallyPaused ? `<span class="state-suffix">(paused)</span>` : "";
         stateLineEl.innerHTML = `${icon}<span>${label}</span>${suffix}`;
-        // Class controls color. Manual pause overrides mode color to gray.
         stateLineEl.className =
             "state-line " + (isManuallyPaused ? "paused" : state.mode);
     }
 
     // ---- Time remaining ----
-    // Idle: "--:--". Running: countdown from endsAt. Paused (either kind):
-    // the frozen remaining value.
 
     if (isIdle) {
         timeEl.style.display = "none";
@@ -98,8 +93,6 @@ function render(state) {
             timeEl.textContent = "--:--";
         }
     }
-    // Time desaturates on manual pause only — override pause keeps full color
-    // because the underlying state (in work block) is still active.
     timeEl.classList.toggle("paused", isManuallyPaused);
 
     // ---- Round progress ----
@@ -115,15 +108,13 @@ function render(state) {
     renderOverrides(state.overrides || []);
 
     // ---- Inputs section: only visible when idle ----
-    // When running, the user can't change config, so the inputs disappear
-    // entirely (cleaner than disabled grayed-out boxes).
+    // Top divider stays always-visible (lives in HTML, no toggle).
+    // Bottom divider only shows when inputs do.
 
     durationsEl.style.display = isIdle ? "" : "none";
-    sectionDividerEl.style.display = isIdle ? "" : "none";
+    bottomDividerEl.style.display = isIdle ? "" : "none";
 
     // ---- Button visibility ----
-    // isManuallyPaused governs Pause/Resume — override-pause doesn't surface
-    // a Resume button (the user can't manually resume from an override).
 
     startBtn.style.display = isIdle ? "" : "none";
     clearBtn.style.display = isIdle ? "" : "none";
@@ -142,7 +133,6 @@ function renderOverrides(overrides) {
         overridesEl.innerHTML = "";
         return;
     }
-    // Sort: active by soonest expiring first, then paused at end.
     visible.sort((a, b) => {
         const aPaused = a.pausedRemainingMs != null;
         const bPaused = b.pausedRemainingMs != null;

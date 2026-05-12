@@ -29,7 +29,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 18px;
+            margin-bottom: 14px;
         }
 
         .brand {
@@ -76,12 +76,18 @@
             height: 14px;
         }
 
+        /* Always-visible top divider, separates header from content */
+        .top-divider {
+            border-top: 1px solid var(--color-divider);
+            margin: 0 0 18px 0;
+        }
+
         /* State line: icon + label, shown only when not idle */
         .state-line {
             display: flex;
             align-items: center;
             gap: 5px;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
             font-size: 11px;
             text-transform: uppercase;
             letter-spacing: 0.06em;
@@ -137,10 +143,10 @@
             margin-bottom: 0;
         }
 
-        /* Divider above inputs when idle */
-        .section-divider {
+        /* Bottom divider — above buttons, idle only */
+        .bottom-divider {
             border-top: 1px solid var(--color-divider);
-            margin: 14px 0;
+            margin: 0 0 14px 0;
         }
 
         /* Inputs section — hidden when not idle */
@@ -154,7 +160,7 @@
             flex: 1;
             display: flex;
             flex-direction: column;
-            gap: 5px;
+            gap: 6px;
         }
 
         .duration-label {
@@ -187,12 +193,10 @@
         }
 
         .duration-input-row {
-            display: flex;
-            align-items: center;
-            gap: 4px;
+            position: relative;
             border: 1px solid var(--color-border);
             border-radius: 4px;
-            padding: 6px 8px;
+            padding: 8px 9px;
             background: #fff;
         }
 
@@ -205,9 +209,8 @@
         }
 
         .duration-input {
-            flex: 1;
             font-family: inherit;
-            font-size: 14px;
+            font-size: 15px;
             border: none;
             background: transparent;
             font-variant-numeric: tabular-nums;
@@ -216,14 +219,30 @@
             width: 100%;
             padding: 0;
             outline: none;
+            text-align: center;
+        }
+
+        /* Hide the spinner arrows for a cleaner look */
+        .duration-input::-webkit-outer-spin-button,
+        .duration-input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .duration-input[type=number] {
+            -moz-appearance: textfield;
         }
 
         .duration-unit {
+            position: absolute;
+            right: 9px;
+            top: 50%;
+            transform: translateY(-50%);
             font-size: 10px;
             color: #aaa;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            flex-shrink: 0;
+            pointer-events: none;
         }
 
         /* Overrides list */
@@ -320,12 +339,12 @@
         </button>
     </div>
 
+    <div class="top-divider"></div>
+
     <div class="state-line" id="state-line"></div>
     <div class="time" id="time">--:--</div>
     <div class="round-progress" id="round-progress"></div>
     <div class="overrides" id="overrides"></div>
-
-    <div class="section-divider" id="section-divider"></div>
 
     <div class="durations" id="durations">
         <div class="duration-field">
@@ -372,6 +391,8 @@
             </div>
         </div>
     </div>
+
+    <div class="bottom-divider" id="bottom-divider"></div>
 
     <div class="buttons">
         <button id="start" class="primary">Start session</button>
