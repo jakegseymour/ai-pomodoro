@@ -364,6 +364,61 @@ async function requestOverride(host) {
     return { ok: true, expiresAt };
 }
 
+// ---- Blocklist management ----
+
+// Adds a host to the blocklist. Caller (options.js) is responsible for
+// having already requested host permission — that has to happen in a user
+// gesture context, which we don't have here.
+async function addBlocklistHost(host) {
+    if (!host || typeof host !== "string") {
+        return { ok: false, error: "Invalid host" };
+    }
+
+    const state = await getState();
+    if (state.blocklist.includes(host)) {
+        return { ok: false, error: `${host} is already in the blocklist` };
+    }
+
+    state.blocklist = [...state.blocklist, host];
+    await setState(state);
+    console.log("ai-pomodoro: added to blocklist", host);
+
+    // If we're in a running work block, force-block any currently-open tabs on this host.
+    if (state.mode === "work" && state.running) {
+        await blockOpenTabs(state);
+    }
+
+    return { ok: true };
+}
+
+// Removes a host from the blocklist. Caller (options.js) is responsible for
+// calling chrome.permissions.remove after state mutation succeeds.
+async function removeBlocklistHost(host) {
+    if (!host || typeof host !== "string") {
+        return { ok: false, error: "Invalid host" };
+    }
+
+    if (DEFAULT_BLOCKLIST.includes(host)) {
+        return { ok: false, error: `${host} is a default site and cannot be removed` };
+    }
+
+    const state = await getState();
+    if (!state.blocklist.includes(host)) {
+        return { ok: false, error: `${host} is not in the blocklist` };
+    }
+
+    state.blocklist = state.blocklist.filter((h) => h !== host);
+    // Also clear any active overrides for the host.
+    state.overrides = state.overrides.filter((o) => !hostsMatch(o.host, host));
+    await setState(state);
+    console.log("ai-pomodoro: removed from blocklist", host);
+
+    // Caller releases permission. We just release related block pages.
+    await releaseRelatedBlockPages(host);
+
+    return { ok: true };
+}
+
 
 
 // ---- Tick: advance mode if block ended; prune expired overrides ----
@@ -646,6 +701,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                         break;
                     }
                     const result = await requestOverride(message.host);
+                    sendResponse(result);
+                    break;
+                }
+                case "addBlocklistHost": {
+                    const result = await addBlocklistHost(message.host);
+                    sendResponse(result);
+                    break;
+                }
+                case "removeBlocklistHost": {
+                    const result = await removeBlocklistHost(message.host);
                     sendResponse(result);
                     break;
                 }

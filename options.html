@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>AI Pomodoro — Settings</title>
+    <style>
+        :root {
+            --color-bg: #faf6f1;
+            --color-ink: #1a1a1a;
+            --color-muted: #888;
+            --color-rust: #b85c38;
+            --color-border: #e0d8cc;
+            --color-soft: rgba(0, 0, 0, 0.03);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            background: var(--color-bg);
+            color: var(--color-ink);
+            font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+        }
+
+        body {
+            padding: 48px 32px;
+        }
+
+        .container {
+            max-width: 640px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 600;
+            margin: 0 0 8px 0;
+        }
+
+        .subtitle {
+            font-size: 14px;
+            color: var(--color-muted);
+            margin-bottom: 40px;
+        }
+
+        .section {
+            margin-bottom: 48px;
+        }
+
+        .section-title {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--color-rust);
+            margin-bottom: 16px;
+        }
+
+        .add-form {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .add-form input {
+            flex: 1;
+            font-family: inherit;
+            font-size: 14px;
+            padding: 10px 12px;
+            border: 1px solid var(--color-border);
+            border-radius: 4px;
+            background: #fff;
+            color: var(--color-ink);
+        }
+
+        .add-form input:focus {
+            outline: none;
+            border-color: var(--color-rust);
+        }
+
+        .add-form input.input-error {
+            border-color: var(--color-rust);
+        }
+
+        .add-form button {
+            font-family: inherit;
+            font-size: 14px;
+            padding: 10px 20px;
+            border: 1px solid var(--color-ink);
+            background: var(--color-ink);
+            color: #fff;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .add-form button:hover {
+            background: #000;
+        }
+
+        .feedback {
+            font-size: 13px;
+            min-height: 18px;
+            margin-bottom: 16px;
+        }
+
+        .feedback.error {
+            color: var(--color-rust);
+        }
+
+        .feedback.success {
+            color: #2d5f3f;
+        }
+
+        .blocklist {
+            border: 1px solid var(--color-border);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .blocklist-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--color-border);
+            background: #fff;
+        }
+
+        .blocklist-row:last-child {
+            border-bottom: none;
+        }
+
+        .blocklist-row.is-default {
+            background: var(--color-soft);
+        }
+
+        .host-label {
+            font-family: "SF Mono", Menlo, monospace;
+            font-size: 14px;
+        }
+
+        .host-meta {
+            font-size: 11px;
+            color: var(--color-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-left: 8px;
+        }
+
+        .lock-icon {
+            font-size: 14px;
+            color: var(--color-muted);
+        }
+
+        .remove-btn {
+            font-family: inherit;
+            font-size: 12px;
+            padding: 4px 10px;
+            border: 1px solid var(--color-border);
+            background: #fff;
+            color: var(--color-ink);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .remove-btn:hover {
+            background: var(--color-bg);
+            border-color: var(--color-rust);
+            color: var(--color-rust);
+        }
+
+        .empty {
+            padding: 24px 16px;
+            text-align: center;
+            color: var(--color-muted);
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>AI Pomodoro Settings</h1>
+        <div class="subtitle">Manage which sites get blocked during your focus blocks.</div>
+
+        <div class="section">
+            <div class="section-title">Blocklist</div>
+            <div class="add-form">
+                <input type="text" id="add-input" placeholder="e.g. character.ai" autocomplete="off" spellcheck="false">
+                <button id="add-btn">Add</button>
+            </div>
+            <div class="feedback" id="feedback"></div>
+            <div class="blocklist" id="blocklist"></div>
+        </div>
+    </div>
+    <script src="options.js"></script>
+</body>
+
+</html>

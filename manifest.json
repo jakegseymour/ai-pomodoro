@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "AI Pomodoro",
-    "version": "0.3.1",
+    "version": "0.4.0",
     "description": "Forced AI-free intervals to build the muscle of thinking without guardrails.",
     "permissions": [
         "storage",
@@ -17,6 +17,10 @@
         "*://www.perplexity.ai/*",
         "*://copilot.microsoft.com/*"
     ],
+    "optional_host_permissions": [
+        "*://*/*"
+    ],
+    "options_page": "options.html",
     "action": {
         "default_popup": "popup.html",
         "default_title": "AI Pomodoro"
