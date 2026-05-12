@@ -3,9 +3,10 @@
 const modeEl = document.getElementById("mode");
 const timeEl = document.getElementById("time");
 const startBtn = document.getElementById("start");
+const clearBtn = document.getElementById("clear");
 const pauseBtn = document.getElementById("pause");
 const resumeBtn = document.getElementById("resume");
-const resetBtn = document.getElementById("reset");
+const endBtn = document.getElementById("end");
 const overridesEl = document.getElementById("overrides");
 const workInput = document.getElementById("work-input");
 const openInput = document.getElementById("open-input");
@@ -38,7 +39,8 @@ function formatTime(ms) {
 // ---- Render the current state into the DOM ----
 
 function render(state) {
-    // Mode label and color
+    // Mode label and color. isPaused here covers BOTH manual and override pause
+    // because the label should show "(PAUSED)" for either.
     const isPaused = (state.overridePausedRemainingMs != null || state.pausedRemainingMs != null) && state.mode !== "idle";
     if (isPaused) {
         modeEl.innerHTML = `${state.mode}<span class="mode-suffix"> (PAUSED)</span>`;
@@ -83,11 +85,16 @@ function render(state) {
         roundProgressEl.textContent = "";
     }
 
-    // Button availability based on state
-    startBtn.disabled = !isIdle;
-    pauseBtn.disabled = isIdle || !state.running;
-    resumeBtn.disabled = isIdle || state.running;
-    resetBtn.disabled = isIdle;
+    // Button visibility based on state. isManuallyPaused governs Pause/Resume
+    // visibility specifically — override-pause is automatic and shouldn't
+    // surface a Resume button, since the user can't manually resume from it.
+    const isManuallyPaused = state.pausedRemainingMs != null;
+
+    startBtn.style.display = isIdle ? "" : "none";
+    clearBtn.style.display = isIdle ? "" : "none";
+    pauseBtn.style.display = (!isIdle && !isManuallyPaused) ? "" : "none";
+    resumeBtn.style.display = (!isIdle && isManuallyPaused) ? "" : "none";
+    endBtn.style.display = !isIdle ? "" : "none";
 }
 
 function renderOverrides(overrides) {
@@ -173,9 +180,18 @@ openInput.addEventListener("input", () => {
     openInput.classList.remove("duration-input-error");
 });
 
-pauseBtn.addEventListener("click", async () => {
-    await send({ type: "pause" });
-    await refresh();
+clearBtn.addEventListener("click", () => {
+    workInput.value = "--";
+    openInput.value = "--";
+    roundsInput.value = "--";
+    workInput.classList.remove("duration-input-error");
+    openInput.classList.remove("duration-input-error");
+    roundsInput.classList.remove("duration-input-error");
+});
+
+pauseBtn.addEventListener("click", () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL("pause.html") });
+    window.close();
 });
 
 resumeBtn.addEventListener("click", async () => {
@@ -183,9 +199,9 @@ resumeBtn.addEventListener("click", async () => {
     await refresh();
 });
 
-resetBtn.addEventListener("click", async () => {
-    await send({ type: "reset" });
-    await refresh();
+endBtn.addEventListener("click", () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL("end.html") });
+    window.close();
 });
 
 openOptionsLink.addEventListener("click", (e) => {

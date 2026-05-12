@@ -203,25 +203,6 @@
             color: #1a1a1a;
             text-decoration: underline;
         }
-
-        .settings-link-wrap {
-            margin-top: 16px;
-            padding-top: 12px;
-            border-top: 1px solid #e8e8e8;
-            text-align: center;
-        }
-
-        .settings-link {
-            font-size: 12px;
-            color: #888;
-            text-decoration: none;
-            letter-spacing: 0.02em;
-        }
-
-        .settings-link:hover {
-            color: #1a1a1a;
-            text-decoration: underline;
-        }
     </style>
 </head>
 
@@ -230,15 +211,18 @@
     <div class="durations">
         <div class="duration-field">
             <label for="work-input" class="duration-label">Work (min)</label>
-            <input type="number" id="work-input" class="duration-input" min="1" max="60" step="1" value="15">
+            <input type="number" id="work-input" class="duration-input" min="1" max="60" step="1" value="15"
+                placeholder="--">
         </div>
         <div class="duration-field">
             <label for="open-input" class="duration-label">Open (min)</label>
-            <input type="number" id="open-input" class="duration-input" min="1" max="60" step="1" value="15">
+            <input type="number" id="open-input" class="duration-input" min="1" max="60" step="1" value="15"
+                placeholder="--">
         </div>
         <div class="duration-field">
             <label for="rounds-input" class="duration-label">Rounds</label>
-            <input type="number" id="rounds-input" class="duration-input" min="1" max="20" step="1" value="4">
+            <input type="number" id="rounds-input" class="duration-input" min="1" max="20" step="1" value="4"
+                placeholder="--">
         </div>
     </div>
     <div class="mode" id="mode">idle</div>
@@ -247,9 +231,10 @@
     <div class="overrides" id="overrides"></div>
     <div class="buttons">
         <button id="start" class="primary">Start</button>
-        <button id="pause">Pause</button>
-        <button id="resume">Resume</button>
-        <button id="reset">Reset</button>
+        <button id="clear">Clear</button>
+        <button id="pause" class="primary">Pause</button>
+        <button id="resume" class="primary">Resume</button>
+        <button id="end">End</button>
     </div>
     <div class="settings-link-wrap">
         <a href="#" id="open-options" class="settings-link">Modify blocked sites</a>

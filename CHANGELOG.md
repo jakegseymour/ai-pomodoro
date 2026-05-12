@@ -2,6 +2,16 @@
 
 Tracked fixes and features across versions. Newest at the top.
 
+## v0.5.0 — Friction-gated pause and end; state-aware buttons
+
+- ~~Four-button popup (Start / Pause / Resume / Reset) was cluttered and clipped the Rounds input.~~ Done. Popup now shows two buttons per state: Start + Clear when idle, Pause + End when running, Resume + End when paused. Five button elements exist in the DOM; visibility toggles via `style.display` based on state. No morphing button identities — leftmost is always the primary action.
+- ~~Pause was a free escape hatch; one click to drop out of a focus block defeated the friction architecture.~~ Done. Pause now opens a full-page friction screen (`pause.html` + `pause.js`) requiring the user to type "I am pausing my focus block. I will resume it, not abandon it." before the pause action fires. Same paste-blocking, drop-blocking, contextmenu-blocking, and keyboard-shortcut-blocking as the override input.
+- ~~Reset during an active session had no friction; users could blow away a half-finished session with one click.~~ Done. End replaces Reset during active sessions and opens a full-page friction screen (`end.html` + `end.js`) requiring the user to type "I am ending my focus block before it finished. I am choosing to stop the work I committed to." The screen also displays what the user would lose ("Round 2 of 4, 12:34 remaining in the work block") — names the commitment being broken.
+- ~~Resume needed friction too?~~ Decided: no. Resume is single-click. Friction is for the action that defeats focus (pause, end), not for returning to commitment.
+- ~~Clear button during idle should reset inputs to factory defaults or empty them?~~ Decided: empty them. Inputs show `--` placeholder when empty. Matches the `--:--` idle time display. Start's existing validation (`Number.isInteger && >= 1`) already rejects empty inputs with red error borders, so no new validation needed.
+- Background `pause` and `reset` handlers unchanged. Friction lives entirely in the UI layer — friction pages own the typed-sentence gate and only send the underlying message after the sentence matches. Less surface area in the service worker; cleaner separation.
+- `pause.html` and `end.html` do NOT need entries in `web_accessible_resources`. They're opened via `chrome.tabs.create` from the popup (extension → extension navigation), not from web origins. Different code path from `blocked.html`, different requirements.
+
 ## v0.3.0 — Round-count and structural changes
 
 - ~~Round count not configurable; sessions cycled infinitely.~~ Done. State now tracks `rounds` (target) and `currentRound` (counter). Popup has a Rounds input (1-20, default 4). Session ends after the configured rounds complete. End-of-session notification fires with completion count. Reset preserves last-used `rounds` alongside duration prefs.
@@ -42,7 +52,6 @@ Tracked fixes and features across versions. Newest at the top.
 ### Required before Chrome Web Store publish
 
 - **Override sentence customization.** Deferred from v0.4.0 — out of scope for the settings UI session. May not be needed for v1.0.
-- **Block paste in override textbox.** Currently copy-paste-able, which defeats the friction. Final step before submission to keep testing fast.
 - **Privacy policy hosted publicly.** Required for store with current permission set. GitHub Pages is the easy host.
 - **Chrome Web Store developer account.** $5 one-time.
 - **Store listing assets.** Screenshots (likely popup mid-session, block page, options page), description, promotional tile, permission justifications.
