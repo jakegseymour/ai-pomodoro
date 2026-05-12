@@ -39,19 +39,31 @@ function formatTime(ms) {
 
 function render(state) {
     // Mode label and color
-    modeEl.textContent = state.mode;
+    const isPaused = (state.overridePausedRemainingMs != null || state.pausedRemainingMs != null) && state.mode !== "idle";
+    if (isPaused) {
+        modeEl.innerHTML = `${state.mode}<span class="mode-suffix"> (PAUSED)</span>`;
+    } else {
+        modeEl.textContent = state.mode;
+    }
     modeEl.className = "mode " + state.mode;
 
     // Time remaining
     if (state.mode === "idle") {
         timeEl.textContent = "--:--";
+        timeEl.classList.remove("time-frozen");
     } else if (state.running && state.endsAt != null) {
         const remaining = state.endsAt - Date.now();
         timeEl.textContent = formatTime(remaining);
+        timeEl.classList.remove("time-frozen");
+    } else if (state.overridePausedRemainingMs != null) {
+        // Timer is auto-paused while overrides are active.
+        timeEl.textContent = formatTime(state.overridePausedRemainingMs);
     } else if (state.pausedRemainingMs != null) {
+        // Manually paused.
         timeEl.textContent = formatTime(state.pausedRemainingMs);
     } else {
         timeEl.textContent = "--:--";
+        timeEl.classList.remove("time-frozen");
     }
 
     // Active overrides
@@ -193,13 +205,6 @@ window.addEventListener("unload", () => {
 
 // One-time: seed input values from state when the popup opens.
 // After this, the inputs belong to the user until Start is clicked.
-(async () => {
-    const response = await send({ type: "getState" });
-    if (response && response.ok) {
-        workInput.value = response.state.workMinutes ?? 15;
-        openInput.value = response.state.openMinutes ?? 15;
-    }
-})();
 
 (async () => {
     const response = await send({ type: "getState" });

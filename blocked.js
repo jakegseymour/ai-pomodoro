@@ -52,15 +52,32 @@ async function refreshTime() {
     const response = await send({ type: "getState" });
     if (!response || !response.ok) return;
     const state = response.state;
-    if (state.mode !== "work" || !state.endsAt) {
-        // Block is over (mode flipped). Send user back to original URL.
+
+    // The block is genuinely over only if we're no longer in work mode.
+    // If we're in work mode, the timer might be running, override-paused,
+    // or manually paused — all still "blocked" states.
+    if (state.mode !== "work") {
         if (blockedUrl) {
             window.location.replace(blockedUrl);
         }
         return;
     }
-    const remaining = state.endsAt - Date.now();
-    timeEl.textContent = formatTime(remaining);
+
+    // Figure out what time to display. Pick whichever is available.
+    let remainingMs;
+    if (state.endsAt != null) {
+        remainingMs = state.endsAt - Date.now();
+    } else if (state.overridePausedRemainingMs != null) {
+        remainingMs = state.overridePausedRemainingMs;
+    } else if (state.pausedRemainingMs != null) {
+        remainingMs = state.pausedRemainingMs;
+    } else {
+        // Edge case: in work mode but no time source. Shouldn't happen.
+        timeEl.textContent = "--:--";
+        return;
+    }
+
+    timeEl.textContent = formatTime(remainingMs);
 }
 
 // ---- Override flow ----

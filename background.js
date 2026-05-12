@@ -37,13 +37,14 @@ const DEFAULT_STATE = {
     running: false,
     endsAt: null,
     pausedRemainingMs: null,
+    overridePausedRemainingMs: null,
     workMinutes: DEFAULT_WORK_MINUTES,
     openMinutes: DEFAULT_OPEN_MINUTES,
     overrides: [],
     blocklist: [...DEFAULT_BLOCKLIST],
     lastPromptedAt: null,
-    rounds: 4,           // target number of rounds for the next session
-    currentRound: 0,     // 0 when idle; 1..rounds when running (counts work blocks completed)
+    rounds: DEFAULT_ROUNDS,
+    currentRound: 0,
 };
 
 async function getState() {
@@ -54,6 +55,7 @@ async function getState() {
     if (state.lastPromptedAt === undefined) state.lastPromptedAt = null;
     if (state.rounds === undefined) state.rounds = DEFAULT_ROUNDS;
     if (state.currentRound === undefined) state.currentRound = 0;
+    if (state.overridePausedRemainingMs === undefined) state.overridePausedRemainingMs = null;
     return state;
 }
 async function setState(state) {
@@ -86,11 +88,20 @@ async function pause() {
     const state = await getState();
     if (!state.running || state.mode === "idle") return;
     const now = Date.now();
-    const remainingMs = Math.max(0, state.endsAt - now);
+
+    // Compute remaining time. If override-paused, use that; otherwise compute from endsAt.
+    let remainingMs;
+    if (state.overridePausedRemainingMs != null) {
+        remainingMs = state.overridePausedRemainingMs;
+    } else {
+        remainingMs = Math.max(0, state.endsAt - now);
+    }
+
     state.running = false;
     state.pausedRemainingMs = remainingMs;
     state.endsAt = null;
-    // Freeze active overrides into a paused form so they don't expire on wall clock.
+    // Don't touch overridePausedRemainingMs — the override is still real.
+    // Freeze active overrides as before.
     state.overrides = state.overrides.map((o) => {
         if (o.expiresAt != null) {
             const overrideRemaining = Math.max(0, o.expiresAt - now);
@@ -108,9 +119,15 @@ async function resume() {
     if (state.running || state.mode === "idle" || state.pausedRemainingMs == null) return;
     const now = Date.now();
     state.running = true;
-    state.endsAt = now + state.pausedRemainingMs;
+
+    // Restore endsAt only if no override pause is active.
+    // If override-paused, the timer stays frozen and overridePausedRemainingMs persists.
+    if (state.overridePausedRemainingMs == null) {
+        state.endsAt = now + state.pausedRemainingMs;
+    }
     state.pausedRemainingMs = null;
-    // Unfreeze paused overrides into active form.
+
+    // Restore overrides to active form.
     state.overrides = state.overrides.map((o) => {
         if (o.pausedRemainingMs != null) {
             return { host: o.host, expiresAt: now + o.pausedRemainingMs };
@@ -335,14 +352,28 @@ async function updateBadge(state, now) {
 
 async function requestOverride(host) {
     const state = await getState();
-    if (state.mode !== "work" || !state.endsAt) {
+    if (state.mode !== "work") {
         return { ok: false, error: "Not in a work block" };
     }
-    const now = Date.now();
-    const expiresAt = Math.min(now + OVERRIDE_MAX_MS, state.endsAt);
 
-    // Find any existing override on a related host (subdomain in either direction).
-    // Collapse all related entries into one canonical entry using the more general host.
+    // Determine the work-block's effective end time, even if currently paused.
+    // The override should expire at min(now + 2min, effective end of block).
+    let blockEndsAt;
+    if (state.endsAt != null) {
+        blockEndsAt = state.endsAt;
+    } else if (state.overridePausedRemainingMs != null) {
+        blockEndsAt = Date.now() + state.overridePausedRemainingMs;
+    } else if (state.pausedRemainingMs != null) {
+        blockEndsAt = Date.now() + state.pausedRemainingMs;
+    } else {
+        return { ok: false, error: "Not in a work block" };
+    }
+
+    const now = Date.now();
+    const expiresAt = Math.min(now + OVERRIDE_MAX_MS, blockEndsAt);
+
+    // Find any existing override on a related host. Collapse all related entries
+    // into one canonical entry using the more general (shorter) host.
     let canonicalHost = host;
     const unrelatedOverrides = [];
     for (const o of state.overrides) {
@@ -355,10 +386,19 @@ async function requestOverride(host) {
 
     unrelatedOverrides.push({ host: canonicalHost, expiresAt });
     state.overrides = unrelatedOverrides;
-    await setState(state);
-    console.log("ai-pomodoro: override granted", { host: canonicalHost, expiresAt });
 
-    // Release any block-page tabs whose original URL is for a related host.
+    // If the work-block timer is currently running (not already auto-paused),
+    // freeze it. The override is now active and the timer should not advance
+    // toward end-of-block while the user is using AI.
+    if (state.overridePausedRemainingMs == null && state.endsAt != null) {
+        const remaining = Math.max(0, state.endsAt - now);
+        state.overridePausedRemainingMs = remaining;
+        state.endsAt = null;
+    }
+
+    await setState(state);
+    console.log("ai-pomodoro: override granted, timer auto-paused", { host: canonicalHost, expiresAt });
+
     await releaseRelatedBlockPages(canonicalHost);
 
     return { ok: true, expiresAt };
@@ -439,6 +479,19 @@ async function tick() {
     if (stillActive.length !== state.overrides.length) {
         state.overrides = stillActive;
         changed = true;
+    }
+
+    // If all overrides have just expired and the timer is override-paused, resume it.
+    // Only resume if not also manually paused (Decision A: independent reasons).
+    if (
+        state.overridePausedRemainingMs != null &&
+        stillActive.length === 0 &&
+        state.pausedRemainingMs == null
+    ) {
+        state.endsAt = now + state.overridePausedRemainingMs;
+        state.overridePausedRemainingMs = null;
+        changed = true;
+        console.log("ai-pomodoro: all overrides expired, timer auto-resumed");
     }
 
     // Advance mode if current block ended
