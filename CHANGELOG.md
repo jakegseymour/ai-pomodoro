@@ -2,6 +2,19 @@
 
 Tracked fixes and features across versions. Newest at the top.
 
+## v0.7.0 — Simple mode
+
+Added Simple/Cycles tab strip to the popup. Simple mode is now the default — one duration input, one Start button. Cycles mode (the previous default) is one tab click away.
+
+### Added
+- Simple/Cycles mode tabs at top of popup
+- Self-describing Solo input in Simple mode: "AI sites blocked for X min"
+- Background state machine handles `openMinutes === 0` as session-end (Simple mode case)
+
+### Changed
+- Round progress only shows for multi-round sessions (was: any session with rounds > 0)
+- Override duration now always 2 full minutes, not clamped to remaining block time
+
 ## v0.5.0 — Friction-gated pause and end; state-aware buttons
 
 - ~~Four-button popup (Start / Pause / Resume / Reset) was cluttered and clipped the Rounds input.~~ Done. Popup now shows two buttons per state: Start + Clear when idle, Pause + End when running, Resume + End when paused. Five button elements exist in the DOM; visibility toggles via `style.display` based on state. No morphing button identities — leftmost is always the primary action.

@@ -1,3 +1,10 @@
+<!--
+    AI Pomodoro
+    Copyright (C) 2026 Jake Seymour
+    Licensed under the GNU Affero General Public License v3.0
+    See LICENSE file for full terms.
+-->
+
 <!DOCTYPE html>
 <html>
 
@@ -76,7 +83,41 @@
             height: 14px;
         }
 
-        /* Always-visible top divider, separates header from content */
+        /* Mode tab strip, replaces the top divider, idle only */
+        .mode-tabs {
+            display: flex;
+            gap: 16px;
+            border-bottom: 1px solid var(--color-divider);
+            margin: 0 0 18px 0;
+        }
+
+        .mode-tab {
+            font-size: 11px;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            font-weight: 600;
+            color: #aaa;
+            padding-bottom: 8px;
+            margin-bottom: -1px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-family: inherit;
+            flex: 0 0 auto;
+            min-width: 0;
+        }
+
+        .mode-tab:hover {
+            color: var(--color-ink);
+            background: none;
+        }
+
+        .mode-tab.active {
+            color: var(--color-ink);
+            border-bottom: 2px solid var(--color-rust);
+        }
+
+        /* Top divider used when not idle (no tabs to show) */
         .top-divider {
             border-top: 1px solid var(--color-divider);
             margin: 0 0 18px 0;
@@ -200,6 +241,21 @@
             background: #fff;
         }
 
+        /* In simple mode, the Solo input becomes a self-describing sentence. */
+        .duration-input-row.simple-mode {
+            display: flex;
+            align-items: baseline;
+            justify-content: center;
+            gap: 2px;
+            padding: 10px 12px;
+        }
+
+        .duration-prefix {
+            font-size: 12px;
+            color: var(--color-muted);
+            font-weight: 400;
+        }
+
         .duration-input-row:focus-within {
             border-color: var(--color-ink);
         }
@@ -220,6 +276,13 @@
             padding: 0;
             outline: none;
             text-align: center;
+        }
+
+        /* In simple mode, the input narrows and sits inline with text. */
+        .duration-input-row.simple-mode .duration-input {
+            width: 32px;
+            flex: 0 0 32px;
+            font-weight: 500;
         }
 
         /* Hide the spinner arrows for a cleaner look */
@@ -243,6 +306,16 @@
             text-transform: uppercase;
             letter-spacing: 0.05em;
             pointer-events: none;
+        }
+
+        /* In simple mode, the unit becomes inline normal text, not an absolute suffix. */
+        .duration-input-row.simple-mode .duration-unit {
+            position: static;
+            transform: none;
+            font-size: 12px;
+            color: var(--color-muted);
+            text-transform: none;
+            letter-spacing: 0;
         }
 
         /* Overrides list */
@@ -339,7 +412,11 @@
         </button>
     </div>
 
-    <div class="top-divider"></div>
+    <div class="mode-tabs" id="mode-tabs">
+        <button class="mode-tab active" id="tab-simple" data-mode="simple">Simple</button>
+        <button class="mode-tab" id="tab-cycles" data-mode="cycles">Cycles</button>
+    </div>
+    <div class="top-divider" id="top-divider" style="display: none;"></div>
 
     <div class="state-line" id="state-line"></div>
     <div class="time" id="time">--:--</div>
@@ -347,7 +424,7 @@
     <div class="overrides" id="overrides"></div>
 
     <div class="durations" id="durations">
-        <div class="duration-field">
+        <div class="duration-field" id="solo-field">
             <label for="work-input" class="duration-label solo">
                 <svg viewBox="0 0 24 24" fill="none" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
                     <rect x="3" y="11" width="18" height="11" rx="2"></rect>
@@ -355,10 +432,11 @@
                 </svg>
                 AI · Solo
             </label>
-            <div class="duration-input-row">
+            <div class="duration-input-row" id="solo-input-row">
+                <span class="duration-prefix" id="solo-prefix">AI sites blocked for</span>
                 <input type="number" id="work-input" class="duration-input" min="1" max="60" step="1" value="15"
                     placeholder="--">
-                <span class="duration-unit">min</span>
+                <span class="duration-unit" id="solo-suffix">min</span>
             </div>
         </div>
         <div class="duration-field">

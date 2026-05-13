@@ -4,15 +4,17 @@ A Chrome extension that time-blocks chatbots so your first thinking is actually 
 
 ## What it does
 
-You set how long your solo-thinking blocks should be, how long your AI-assist blocks should be, and how many rounds. During solo-thinking blocks, the extension blocks the major chatbots. During AI-assist blocks, everything's open and you can use the chatbots to refine what you started. After the configured rounds complete, the session ends.
+You set how long you want chatbots blocked, hit start, and they're blocked. When time's up, everything unblocks. That's Simple mode — the default.
 
-If you genuinely need to break a solo-thinking block — to look up syntax, copy a snippet, or admit you're stuck — you can override per-site by typing a sentence verbatim. The override lasts 2 minutes, or until the block ends, whichever comes first. It's deliberately enough friction to make the override a real decision, not a reflex.
+If you want more structure, there's a Cycles mode that alternates between solo-thinking blocks and AI-assist blocks across multiple rounds.
+
+If you genuinely need to break a block — to look up syntax, copy a snippet, or admit you're stuck — you can override per-site by typing a sentence verbatim. The override lasts 2 minutes. It's deliberately enough friction to make the override a real decision, not a reflex.
 
 By default, the extension blocks claude.ai, chatgpt.com, gemini.google.com, perplexity.ai, and copilot.microsoft.com. You can add or remove sites from the settings page.
 
 ## Why I built it
 
-Chatbots are excellent at refining ideas you've already had and bad at originating them. The more you reach for AI before forming your own take, the more your thinking starts to sound like everyone else's — because AI averages, and you can't unsee what you've already read. This extension blocks chatbots during solo-thinking blocks so you start from a blank page, then unblocks them during AI-assist blocks for refining what you started.
+Chatbots are excellent at refining ideas you've already had and bad at originating them. The more you reach for AI before forming your own take, the more your thinking starts to sound like everyone else's — because AI averages, and you can't unsee what you've already read. This extension blocks chatbots so you start from a blank page.
 
 Solo first, AI after.
 
@@ -30,11 +32,11 @@ Until this is on the Chrome Web Store, install manually:
 ## Use
 
 1. Click the extension icon.
-2. Set Solo minutes, Assist minutes, and Rounds. Defaults are 15 / 15 / 4.
-3. Click Start session.
-4. The toolbar badge shows a live countdown, rust for solo-thinking and green for AI-assist. The popup shows mode (SOLO / ASSIST), time remaining, and round progress.
+2. Default is Simple mode: set how many minutes to block AI, hit Start session.
+3. For Cycles mode, click the Cycles tab. Set Solo, Assist, and Rounds durations.
+4. The toolbar badge shows a live countdown — rust for solo-thinking, green for AI-assist.
 5. Visiting a blocked site during a solo-thinking block redirects to a block page. To override, type the displayed sentence exactly.
-6. After all rounds complete, a "Session complete" notification fires and everything unblocks.
+6. When the session ends, a "Session complete" notification fires and everything unblocks.
 
 ## Tech stack
 
@@ -52,4 +54,6 @@ See [CHANGELOG.md](./CHANGELOG.md) for what's shipped and what's coming.
 
 ## License
 
-MIT. See [LICENSE](./LICENSE).
+[GNU Affero General Public License v3.0](./LICENSE).
+
+If you modify this code and run it as a network service, you must make your modifications available under the same license. See [LICENSE](./LICENSE) for full terms.

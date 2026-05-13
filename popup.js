@@ -1,3 +1,15 @@
+// AI Pomodoro
+// Copyright (C) 2026 Jake Seymour
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as
+// published by the Free Software Foundation, version 3 of the License.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Affero General Public License for more details.
+
 // popup.js — runs when the popup is open
 
 const stateLineEl = document.getElementById("state-line");
@@ -14,6 +26,10 @@ const roundsInput = document.getElementById("rounds-input");
 const roundProgressEl = document.getElementById("round-progress");
 const openOptionsBtn = document.getElementById("open-options");
 const durationsEl = document.getElementById("durations");
+const modeTabsEl = document.getElementById("mode-tabs");
+const topDividerEl = document.getElementById("top-divider");
+const tabSimpleEl = document.getElementById("tab-simple");
+const tabCyclesEl = document.getElementById("tab-cycles");
 
 let renderInterval = null;
 
@@ -53,6 +69,8 @@ const LOCK_OPEN_SVG = `
     </svg>`;
 
 // ---- Render the current state into the DOM ----
+
+let cyclesMode = false;
 
 function render(state) {
     const isIdle = state.mode === "idle";
@@ -96,7 +114,8 @@ function render(state) {
 
     // ---- Round progress ----
 
-    if (!isIdle && state.currentRound > 0 && state.rounds > 0) {
+    // Only show round progress for multi-round (cycles-mode) sessions.
+    if (!isIdle && state.currentRound > 0 && state.rounds > 1) {
         roundProgressEl.textContent = `Round ${state.currentRound} of ${state.rounds}`;
     } else {
         roundProgressEl.textContent = "";
@@ -111,6 +130,8 @@ function render(state) {
     // Bottom divider only shows when inputs do.
 
     durationsEl.style.display = isIdle ? "" : "none";
+    modeTabsEl.style.display = isIdle ? "" : "none";
+    topDividerEl.style.display = isIdle ? "none" : "";
 
     // ---- Button visibility ----
 
@@ -173,20 +194,56 @@ async function refresh() {
 
 // ---- Button handlers ----
 
+tabSimpleEl.addEventListener("click", () => {
+    cyclesMode = false;
+    renderSetupMode();
+});
+
+tabCyclesEl.addEventListener("click", () => {
+    cyclesMode = true;
+    renderSetupMode();
+});
+
+function renderSetupMode() {
+    // Toggle which tab is active.
+    tabSimpleEl.classList.toggle("active", !cyclesMode);
+    tabCyclesEl.classList.toggle("active", cyclesMode);
+
+    // Show/hide Assist and Rounds fields based on mode.
+    const assistField = openInput.closest(".duration-field");
+    const roundsField = roundsInput.closest(".duration-field");
+    assistField.style.display = cyclesMode ? "" : "none";
+    roundsField.style.display = cyclesMode ? "" : "none";
+
+    // Toggle simple-mode styling on the Solo input row.
+    const soloInputRow = document.getElementById("solo-input-row");
+    const soloPrefix = document.getElementById("solo-prefix");
+    soloInputRow.classList.toggle("simple-mode", !cyclesMode);
+    soloPrefix.style.display = cyclesMode ? "none" : "";
+}
+
 startBtn.addEventListener("click", async () => {
     const workMinutes = parseInt(workInput.value, 10);
-    const openMinutes = parseInt(openInput.value, 10);
-    const rounds = parseInt(roundsInput.value, 10);
-
     const workValid = Number.isInteger(workMinutes) && workMinutes >= 1 && workMinutes <= 60;
-    const openValid = Number.isInteger(openMinutes) && openMinutes >= 1 && openMinutes <= 60;
-    const roundsValid = Number.isInteger(rounds) && rounds >= 1 && rounds <= 20;
-
     workInput.closest(".duration-input-row").classList.toggle("duration-input-error", !workValid);
-    openInput.closest(".duration-input-row").classList.toggle("duration-input-error", !openValid);
-    roundsInput.closest(".duration-input-row").classList.toggle("duration-input-error", !roundsValid);
 
-    if (!workValid || !openValid || !roundsValid) return;
+    let openMinutes = 0;
+    let rounds = 1;
+
+    if (cyclesMode) {
+        openMinutes = parseInt(openInput.value, 10);
+        rounds = parseInt(roundsInput.value, 10);
+
+        const openValid = Number.isInteger(openMinutes) && openMinutes >= 1 && openMinutes <= 60;
+        const roundsValid = Number.isInteger(rounds) && rounds >= 1 && rounds <= 20;
+
+        openInput.closest(".duration-input-row").classList.toggle("duration-input-error", !openValid);
+        roundsInput.closest(".duration-input-row").classList.toggle("duration-input-error", !roundsValid);
+
+        if (!workValid || !openValid || !roundsValid) return;
+    } else {
+        if (!workValid) return;
+    }
 
     await send({ type: "startSession", workMinutes, openMinutes, rounds });
     await refresh();
@@ -251,3 +308,5 @@ window.addEventListener("unload", () => {
         roundsInput.value = response.state.rounds ?? 4;
     }
 })();
+
+renderSetupMode();

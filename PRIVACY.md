@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Effective date:** May 12, 2026
+**Effective date:** May 13, 2026
 
 AI Pomodoro is a Chrome extension that time-blocks chatbots during user-defined work sessions. This policy explains what data the extension handles, where that data lives, and what it never does.
 
@@ -12,7 +12,7 @@ AI Pomodoro does not collect, transmit, or share any of your data. All informati
 
 The extension uses `chrome.storage.local` to persist the following on your device only:
 
-- Your session preferences: solo-thinking duration, AI-assist duration, and round count.
+- Your session preferences (durations and round count).
 - Your configured blocklist of sites to block during solo-thinking blocks.
 - Your override history: timestamps and host names of overrides you have granted during solo-thinking blocks.
 - Current session state: whether a session is running, the timer's end time, which round you are in, and any active overrides.

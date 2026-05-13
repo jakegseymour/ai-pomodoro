@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "AI Pomodoro",
-    "version": "0.6.0",
+    "version": "0.7.0",
     "description": "Solo-thinking first, AI after. Time-blocks chatbots so your first thinking is actually yours.",
     "permissions": [
         "storage",

@@ -1,3 +1,15 @@
+// AI Pomodoro
+// Copyright (C) 2026 Jake Seymour
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as
+// published by the Free Software Foundation, version 3 of the License.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Affero General Public License for more details.
+
 // background.js — runs in the background, independent of popup or tabs
 
 console.log("ai-pomodoro: background script loaded");
@@ -356,21 +368,17 @@ async function requestOverride(host) {
         return { ok: false, error: "Not in a work block" };
     }
 
-    // Determine the work-block's effective end time, even if currently paused.
-    // The override should expire at min(now + 2min, effective end of block).
-    let blockEndsAt;
-    if (state.endsAt != null) {
-        blockEndsAt = state.endsAt;
-    } else if (state.overridePausedRemainingMs != null) {
-        blockEndsAt = Date.now() + state.overridePausedRemainingMs;
-    } else if (state.pausedRemainingMs != null) {
-        blockEndsAt = Date.now() + state.pausedRemainingMs;
-    } else {
+    // Verify we're in a work block (even if paused) before granting.
+    const inWorkBlock =
+        state.endsAt != null ||
+        state.overridePausedRemainingMs != null ||
+        state.pausedRemainingMs != null;
+    if (!inWorkBlock) {
         return { ok: false, error: "Not in a work block" };
     }
 
     const now = Date.now();
-    const expiresAt = Math.min(now + OVERRIDE_MAX_MS, blockEndsAt);
+    const expiresAt = now + OVERRIDE_MAX_MS;
 
     // Find any existing override on a related host. Collapse all related entries
     // into one canonical entry using the more general (shorter) host.
@@ -501,7 +509,15 @@ async function tick() {
     if (state.running && state.mode !== "idle" && state.endsAt && now >= state.endsAt) {
         if (state.mode === "work") {
             // Work block ended.
-            if (state.currentRound >= state.rounds) {
+            if (state.openMinutes === 0) {
+                // Simple-mode session: no assist phase, session is done.
+                state.mode = "idle";
+                state.running = false;
+                state.endsAt = null;
+                state.overrides = [];
+                state.currentRound = 0;
+                sessionJustEnded = true;
+            } else if (state.currentRound >= state.rounds) {
                 // This was the last work block. Move to the final open block (option A: last open included).
                 state.mode = "open";
                 state.endsAt = now + state.openMinutes * 60 * 1000;
